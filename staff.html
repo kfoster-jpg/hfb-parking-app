@@ -1,39 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>HFB Staff Code Redemption</title>
+  <title>HFB Staff Code Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
-<body style="font-family: Arial, sans-serif; padding: 24px; max-width: 420px; margin: auto;">
-  <h1>Redeem Parking Code</h1>
+<body style="font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: auto;">
+  <h1>Parking Codes</h1>
+  <p>Recent issued codes. Unredeemed codes can be marked redeemed once.</p>
 
-  <input
-    id="code"
-    placeholder="Enter HFB code"
-    style="width: 100%; padding: 14px; font-size: 18px; margin-bottom: 12px;"
-  />
-
-  <button
-    onclick="redeemCode()"
-    style="width: 100%; padding: 14px; font-size: 18px; background: black; color: white; border: none;"
-  >
-    Redeem Code
+  <button onclick="loadCodes()" style="padding: 10px 14px; margin-bottom: 16px;">
+    Refresh Codes
   </button>
 
-  <p id="result" style="font-size: 18px; font-weight: bold; margin-top: 18px;"></p>
+  <div id="codes">Loading codes...</div>
 
   <script>
-    async function redeemCode() {
-      const code = document.getElementById("code").value.trim();
-      const result = document.getElementById("result");
+    async function loadCodes() {
+      const container = document.getElementById("codes");
+      container.innerHTML = "Loading codes...";
 
-      if (!code) {
-        result.innerText = "Please enter a code.";
+      const response = await fetch("/api/list-codes");
+      const data = await response.json();
+
+      if (!data.success) {
+        container.innerHTML = "Could not load codes.";
         return;
       }
 
-      result.innerText = "Checking code...";
+      if (!data.codes.length) {
+        container.innerHTML = "No codes found.";
+        return;
+      }
+
+      container.innerHTML = data.codes.map(item => {
+        const issued = item.issued_at
+          ? new Date(item.issued_at).toLocaleString()
+          : "Unknown";
+
+        const redeemedAt = item.redeemed_at
+          ? new Date(item.redeemed_at).toLocaleString()
+          : "";
+
+        return `
+          <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:12px;">
+            <div style="font-size:24px; font-weight:bold; letter-spacing:1px;">
+              ${item.code}
+            </div>
+
+            <div style="margin-top:8px;">
+              <strong>Email:</strong> ${item.email || "N/A"}<br>
+              <strong>Issued:</strong> ${issued}<br>
+              <strong>Status:</strong> ${
+                item.redeemed
+                  ? "✅ Redeemed" + (redeemedAt ? " at " + redeemedAt : "")
+                  : "🟡 Not redeemed"
+              }
+            </div>
+
+            ${
+              item.redeemed
+                ? `<button disabled style="margin-top:12px; padding:10px 14px; opacity:.5;">Already Redeemed</button>`
+                : `<button onclick="redeemCode('${item.code}')" style="margin-top:12px; padding:10px 14px; background:black; color:white; border:none; border-radius:6px;">
+                    Mark Redeemed
+                  </button>`
+            }
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function redeemCode(code) {
+      const confirmed = confirm("Mark " + code + " as redeemed?");
+
+      if (!confirmed) return;
 
       const response = await fetch("/api/redeem-code", {
         method: "POST",
@@ -46,14 +86,15 @@
       const data = await response.json();
 
       if (data.success) {
-        result.style.color = "green";
-        result.innerText = "✅ Code redeemed successfully.";
-        document.getElementById("code").value = "";
+        alert("Code redeemed successfully.");
+        loadCodes();
       } else {
-        result.style.color = "red";
-        result.innerText = "❌ " + data.message;
+        alert(data.message || "Could not redeem code.");
+        loadCodes();
       }
     }
+
+    loadCodes();
   </script>
 </body>
 </html>
