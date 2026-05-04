@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HFB Staff Code Redemption</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body style="font-family: Arial, sans-serif; padding: 24px; max-width: 420px; margin: auto;">
+  <h1>Redeem Parking Code</h1>
+
+  <input
+    id="code"
+    placeholder="Enter HFB code"
+    style="width: 100%; padding: 14px; font-size: 18px; margin-bottom: 12px;"
+  />
+
+  <button
+    onclick="redeemCode()"
+    style="width: 100%; padding: 14px; font-size: 18px; background: black; color: white; border: none;"
+  >
+    Redeem Code
+  </button>
+
+  <p id="result" style="font-size: 18px; font-weight: bold; margin-top: 18px;"></p>
+
+  <script>
+    async function redeemCode() {
+      const code = document.getElementById("code").value.trim();
+      const result = document.getElementById("result");
+
+      if (!code) {
+        result.innerText = "Please enter a code.";
+        return;
+      }
+
+      result.innerText = "Checking code...";
+
+      const response = await fetch("/api/redeem-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ code })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        result.style.color = "green";
+        result.innerText = "✅ Code redeemed successfully.";
+        document.getElementById("code").value = "";
+      } else {
+        result.style.color = "red";
+        result.innerText = "❌ " + data.message;
+      }
+    }
+  </script>
+</body>
+</html>
