@@ -20,20 +20,65 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  function generateCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = 'HFB-';
-
-    for (let i = 0; i < 5; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    return result;
-  }
-
-  const code = generateCode();
+  const normalizedEmail = email.trim().toLowerCase();
+  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
   try {
+    const emailCheckUrl =
+      `${SUPABASE_URL}/rest/v1/discount_codes?email=eq.${encodeURIComponent(normalizedEmail)}&issued_at=gte.${encodeURIComponent(twelveHoursAgo)}&select=id,code,email,issued_at`;
+
+    const emailCheck = await fetch(emailCheckUrl, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+
+    const emailMatches = await emailCheck.json();
+
+    if (emailMatches.length > 0) {
+      return res.status(429).json({
+        allowed: false,
+        reason: 'email_recently_used',
+        message: 'This email has already received a code recently.'
+      });
+    }
+
+    if (device_id) {
+      const deviceCheckUrl =
+        `${SUPABASE_URL}/rest/v1/discount_codes?device_id=eq.${encodeURIComponent(device_id)}&issued_at=gte.${encodeURIComponent(twelveHoursAgo)}&select=id,code,device_id,issued_at`;
+
+      const deviceCheck = await fetch(deviceCheckUrl, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+
+      const deviceMatches = await deviceCheck.json();
+
+      if (deviceMatches.length > 0) {
+        return res.status(429).json({
+          allowed: false,
+          reason: 'device_recently_used',
+          message: 'This device has already received a code recently.'
+        });
+      }
+    }
+
+    function generateCode() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = 'HFB-';
+
+      for (let i = 0; i < 5; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      return result;
+    }
+
+    const code = generateCode();
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/discount_codes`, {
       method: 'POST',
       headers: {
@@ -44,7 +89,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         code: code,
-        email: email,
+        email: normalizedEmail,
         device_id: device_id,
         issued_at: new Date().toISOString(),
         redeemed: false
@@ -61,6 +106,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
+      allowed: true,
       code,
       saved: true
     });
