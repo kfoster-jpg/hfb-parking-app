@@ -13,13 +13,13 @@ export default async function handler(req, res) {
 
   const code = generateCode();
 
-  // Save to Supabase
   const response = await fetch(`${SUPABASE_URL}/rest/v1/parking_codes`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer': 'return=representation'
     },
     body: JSON.stringify({
       code: code,
@@ -30,5 +30,17 @@ export default async function handler(req, res) {
 
   const data = await response.json();
 
-  res.status(200).json({ code, saved: true });
+  if (!response.ok) {
+    return res.status(500).json({
+      code,
+      saved: false,
+      error: data
+    });
+  }
+
+  return res.status(200).json({
+    code,
+    saved: true,
+    supabase: data
+  });
 }
