@@ -7,9 +7,15 @@
 
 <body style="font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: auto;">
   <h1>Parking Codes</h1>
-  <p>Recent issued codes. Unredeemed codes can be marked redeemed once.</p>
 
-  <button onclick="loadCodes()" style="padding: 10px 14px; margin-bottom: 16px;">
+  <label><strong>Manager Name</strong></label>
+  <input
+    id="manager-name"
+    placeholder="Enter manager name"
+    style="width:100%; padding:12px; font-size:16px; margin:8px 0 18px;"
+  />
+
+  <button onclick="loadCodes()" style="padding:10px 14px; margin-bottom:16px;">
     Refresh Codes
   </button>
 
@@ -28,25 +34,13 @@
         return;
       }
 
-      if (!data.codes.length) {
-        container.innerHTML = "No codes found.";
-        return;
-      }
-
       container.innerHTML = data.codes.map(item => {
-        const issued = item.issued_at
-          ? new Date(item.issued_at).toLocaleString()
-          : "Unknown";
-
-        const redeemedAt = item.redeemed_at
-          ? new Date(item.redeemed_at).toLocaleString()
-          : "";
+        const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
+        const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
 
         return `
           <div style="border:1px solid #ddd; border-radius:10px; padding:16px; margin-bottom:12px;">
-            <div style="font-size:24px; font-weight:bold; letter-spacing:1px;">
-              ${item.code}
-            </div>
+            <div style="font-size:24px; font-weight:bold; letter-spacing:1px;">${item.code}</div>
 
             <div style="margin-top:8px;">
               <strong>Email:</strong> ${item.email || "N/A"}<br>
@@ -55,13 +49,16 @@
                 item.redeemed
                   ? "✅ Redeemed" + (redeemedAt ? " at " + redeemedAt : "")
                   : "🟡 Not redeemed"
-              }
+              }<br>
+              <strong>Redeemed By:</strong> ${item.redeemed_by || "N/A"}
             </div>
 
             ${
               item.redeemed
-                ? `<button disabled style="margin-top:12px; padding:10px 14px; opacity:.5;">Already Redeemed</button>`
-                : `<button onclick="redeemCode('${item.code}')" style="margin-top:12px; padding:10px 14px; background:black; color:white; border:none; border-radius:6px;">
+                ? `<button onclick="updateCode('${item.code}', 'unredeem')" style="margin-top:12px; padding:10px 14px;">
+                    Mark Unredeemed
+                  </button>`
+                : `<button onclick="updateCode('${item.code}', 'redeem')" style="margin-top:12px; padding:10px 14px; background:black; color:white; border:none; border-radius:6px;">
                     Mark Redeemed
                   </button>`
             }
@@ -70,28 +67,33 @@
       }).join("");
     }
 
-    async function redeemCode(code) {
-      const confirmed = confirm("Mark " + code + " as redeemed?");
+    async function updateCode(code, action) {
+      const managerName = document.getElementById("manager-name").value.trim();
 
-      if (!confirmed) return;
+      if (!managerName) {
+        alert("Please enter your manager name first.");
+        return;
+      }
+
+      const label = action === "redeem" ? "redeemed" : "unredeemed";
+      if (!confirm("Mark " + code + " as " + label + "?")) return;
 
       const response = await fetch("/api/redeem-code", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({
+          code: code,
+          manager_name: managerName,
+          action: action
+        })
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        alert("Code redeemed successfully.");
-        loadCodes();
-      } else {
-        alert(data.message || "Could not redeem code.");
-        loadCodes();
-      }
+      alert(data.message || "Updated.");
+      loadCodes();
     }
 
     loadCodes();
