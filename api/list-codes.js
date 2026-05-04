@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/discount_codes?select=id,code,email,issued_at,redeemed,redeemed_at&order=issued_at.desc&limit=100`,
+      `${SUPABASE_URL}/rest/v1/discount_codes?select=id,code,email,issued_at,redeemed,redeemed_at,redeemed_by,unredeemed_at&order=issued_at.desc&limit=100`,
       {
         headers: {
           'apikey': SUPABASE_KEY,
