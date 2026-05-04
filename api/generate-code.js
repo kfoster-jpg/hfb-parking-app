@@ -2,6 +2,17 @@ export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { email, device_id } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
   function generateCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = 'HFB-';
@@ -24,6 +35,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         code: code,
+        email: email,
+        device_id: device_id,
         issued_at: new Date().toISOString(),
         redeemed: false
       })
@@ -33,7 +46,6 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(500).json({
-        code,
         saved: false,
         error: data
       });
@@ -41,13 +53,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       code,
-      saved: true,
-      supabase: data
+      saved: true
     });
 
   } catch (err) {
     return res.status(500).json({
-      code,
       saved: false,
       error: err.message
     });
