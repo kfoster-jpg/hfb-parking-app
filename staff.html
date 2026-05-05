@@ -32,8 +32,14 @@
       <button onclick="setFilter('today-unredeemed')" style="padding:10px 14px;">Today: Unredeemed</button>
       <button onclick="setFilter('today-redeemed')" style="padding:10px 14px;">Today: Redeemed</button>
       <button onclick="setFilter('recent')" style="padding:10px 14px;">Recent Codes</button>
+      <button onclick="startScanner()" style="padding:10px 14px; background:black; color:white; border:none;">Scan QR Code</button>
       <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
       <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
+    </div>
+
+    <div id="scanner" style="display:none; margin:16px 0;">
+      <video id="video" style="width:100%; border-radius:10px; border:1px solid #ddd;"></video>
+      <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
     </div>
 
     <p id="filter-label" style="font-weight:bold;"></p>
@@ -50,6 +56,8 @@
 
     let currentFilter = "today-all";
     let allCodes = [];
+    let videoStream = null;
+    let scanning = false;
 
     function checkPassword() {
       const password = document.getElementById("staff-password").value;
@@ -84,6 +92,7 @@
     }
 
     function logoutStaff() {
+      stopScanner();
       sessionStorage.removeItem("hfb_staff_logged_in");
       sessionStorage.removeItem("hfb_staff_name");
       location.reload();
@@ -227,6 +236,75 @@
 
       alert(data.message || "Updated.");
       loadCodes();
+    }
+
+    async function startScanner() {
+      const scanner = document.getElementById("scanner");
+      const video = document.getElementById("video");
+
+      scanner.style.display = "block";
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+
+        video.srcObject = videoStream;
+        video.setAttribute("playsinline", true);
+        await video.play();
+
+        scanning = true;
+        scanFrame(video);
+
+      } catch (err) {
+        alert("Camera access failed. Please allow camera access or enter the code manually.");
+        stopScanner();
+      }
+    }
+
+    function stopScanner() {
+      scanning = false;
+
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+
+      const scanner = document.getElementById("scanner");
+      if (scanner) {
+        scanner.style.display = "none";
+      }
+    }
+
+    function scanFrame(video) {
+      if (!scanning) return;
+
+      if ("BarcodeDetector" in window) {
+        const detector = new BarcodeDetector({ formats: ["qr_code"] });
+
+        detector.detect(video).then(codes => {
+          if (codes.length > 0) {
+            const scannedCode = codes[0].rawValue;
+            stopScanner();
+            handleScannedCode(scannedCode);
+          } else {
+            requestAnimationFrame(() => scanFrame(video));
+          }
+        }).catch(() => {
+          requestAnimationFrame(() => scanFrame(video));
+        });
+
+      } else {
+        alert("QR scanning is not supported on this device/browser. Please enter the code manually.");
+        stopScanner();
+      }
+    }
+
+    function handleScannedCode(code) {
+      const cleaned = code.replace("HFB-", "").trim().toUpperCase();
+      const finalCode = "HFB-" + cleaned;
+
+      updateCode(finalCode, "redeem");
     }
 
     checkExistingLogin();
