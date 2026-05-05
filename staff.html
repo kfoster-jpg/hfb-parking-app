@@ -16,10 +16,7 @@
       style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;"
     />
 
-    <button
-      onclick="checkPassword()"
-      style="width:100%; padding:12px; background:black; color:white; border:none;"
-    >
+    <button onclick="checkPassword()" style="width:100%; padding:12px; background:black; color:white; border:none;">
       Login
     </button>
 
@@ -30,24 +27,29 @@
     <h1>Parking Codes</h1>
     <p id="staff-name-display" style="font-weight:bold;"></p>
 
-    <button onclick="loadCodes()" style="padding:10px 14px; margin-bottom:16px;">
-      Refresh Codes
-    </button>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+      <button onclick="setFilter('today-all')" style="padding:10px 14px;">Today: All</button>
+      <button onclick="setFilter('today-unredeemed')" style="padding:10px 14px;">Today: Unredeemed</button>
+      <button onclick="setFilter('today-redeemed')" style="padding:10px 14px;">Today: Redeemed</button>
+      <button onclick="setFilter('recent')" style="padding:10px 14px;">Recent Codes</button>
+      <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
+      <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
+    </div>
 
-    <button onclick="logoutStaff()" style="padding:10px 14px; margin-bottom:16px;">
-      Logout
-    </button>
-
+    <p id="filter-label" style="font-weight:bold;"></p>
     <div id="codes">Loading codes...</div>
   </div>
 
   <script>
     const STAFF_USERS = {
-      "password1": "Kasey Foster",
-      "password2": "Sara Jimenez",
-      "password3": "Shane Lohr",
-      "password4": "George Chavez"
+      "password1": "Josh",
+      "password2": "Crysten",
+      "password3": "Manager 1",
+      "password4": "Manager 2"
     };
+
+    let currentFilter = "today-all";
+    let allCodes = [];
 
     function checkPassword() {
       const password = document.getElementById("staff-password").value;
@@ -56,7 +58,6 @@
       if (STAFF_USERS[password]) {
         sessionStorage.setItem("hfb_staff_logged_in", "true");
         sessionStorage.setItem("hfb_staff_name", STAFF_USERS[password]);
-
         showDashboard();
       } else {
         error.innerText = "Incorrect password.";
@@ -68,8 +69,7 @@
 
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("dashboard-screen").style.display = "block";
-      document.getElementById("staff-name-display").innerText =
-        "Logged in as: " + staffName;
+      document.getElementById("staff-name-display").innerText = "Logged in as: " + staffName;
 
       loadCodes();
     }
@@ -89,6 +89,55 @@
       location.reload();
     }
 
+    function setFilter(filter) {
+      currentFilter = filter;
+      renderCodes();
+    }
+
+    function isToday(dateString) {
+      if (!dateString) return false;
+
+      const codeDate = new Date(dateString);
+      const today = new Date();
+
+      return (
+        codeDate.getFullYear() === today.getFullYear() &&
+        codeDate.getMonth() === today.getMonth() &&
+        codeDate.getDate() === today.getDate()
+      );
+    }
+
+    function getFilteredCodes() {
+      if (currentFilter === "recent") {
+        return allCodes;
+      }
+
+      const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
+
+      if (currentFilter === "today-unredeemed") {
+        return todaysCodes.filter(item => !item.redeemed);
+      }
+
+      if (currentFilter === "today-redeemed") {
+        return todaysCodes.filter(item => item.redeemed);
+      }
+
+      return todaysCodes;
+    }
+
+    function updateFilterLabel(filteredCodes) {
+      const label = document.getElementById("filter-label");
+
+      const labels = {
+        "today-all": "Showing today’s codes",
+        "today-unredeemed": "Showing today’s unredeemed codes",
+        "today-redeemed": "Showing today’s redeemed codes",
+        "recent": "Showing recent codes"
+      };
+
+      label.innerText = labels[currentFilter] + " — " + filteredCodes.length + " found";
+    }
+
     async function loadCodes() {
       const container = document.getElementById("codes");
       container.innerHTML = "Loading codes...";
@@ -101,12 +150,22 @@
         return;
       }
 
-      if (!data.codes.length) {
-        container.innerHTML = "No codes found.";
+      allCodes = data.codes || [];
+      renderCodes();
+    }
+
+    function renderCodes() {
+      const container = document.getElementById("codes");
+      const filteredCodes = getFilteredCodes();
+
+      updateFilterLabel(filteredCodes);
+
+      if (!filteredCodes.length) {
+        container.innerHTML = "No codes found for this view.";
         return;
       }
 
-      container.innerHTML = data.codes.map(item => {
+      container.innerHTML = filteredCodes.map(item => {
         const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
         const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
 
