@@ -3,6 +3,8 @@
 <head>
   <title>HFB Staff Code Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 
 <body style="font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: auto;">
@@ -38,7 +40,7 @@
     </div>
 
     <div id="scanner" style="display:none; margin:16px 0;">
-      <video id="video" style="width:100%; border-radius:10px; border:1px solid #ddd;"></video>
+      <div id="qr-reader" style="width:100%; max-width:420px;"></div>
       <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
     </div>
 
@@ -56,8 +58,8 @@
 
     let currentFilter = "today-all";
     let allCodes = [];
-    let videoStream = null;
-    let scanning = false;
+    let html5QrCode = null;
+    let scannerRunning = false;
 
     function checkPassword() {
       const password = document.getElementById("staff-password").value;
@@ -240,63 +242,52 @@
 
     async function startScanner() {
       const scanner = document.getElementById("scanner");
-      const video = document.getElementById("video");
-
       scanner.style.display = "block";
 
+      if (scannerRunning) return;
+
+      html5QrCode = new Html5Qrcode("qr-reader");
+
       try {
-        videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
-        });
+        scannerRunning = true;
 
-        video.srcObject = videoStream;
-        video.setAttribute("playsinline", true);
-        await video.play();
-
-        scanning = true;
-        scanFrame(video);
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 }
+          },
+          async function(decodedText) {
+            await stopScanner();
+            handleScannedCode(decodedText);
+          },
+          function(errorMessage) {
+            // Ignore normal scan misses
+          }
+        );
 
       } catch (err) {
-        alert("Camera access failed. Please allow camera access or enter the code manually.");
-        stopScanner();
+        scannerRunning = false;
+        alert("Camera access failed or QR scanner could not start. Please enter the code manually.");
       }
     }
 
-    function stopScanner() {
-      scanning = false;
-
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-        videoStream = null;
+    async function stopScanner() {
+      if (html5QrCode && scannerRunning) {
+        try {
+          await html5QrCode.stop();
+          await html5QrCode.clear();
+        } catch (err) {
+          // Ignore scanner cleanup errors
+        }
       }
+
+      html5QrCode = null;
+      scannerRunning = false;
 
       const scanner = document.getElementById("scanner");
       if (scanner) {
         scanner.style.display = "none";
-      }
-    }
-
-    function scanFrame(video) {
-      if (!scanning) return;
-
-      if ("BarcodeDetector" in window) {
-        const detector = new BarcodeDetector({ formats: ["qr_code"] });
-
-        detector.detect(video).then(codes => {
-          if (codes.length > 0) {
-            const scannedCode = codes[0].rawValue;
-            stopScanner();
-            handleScannedCode(scannedCode);
-          } else {
-            requestAnimationFrame(() => scanFrame(video));
-          }
-        }).catch(() => {
-          requestAnimationFrame(() => scanFrame(video));
-        });
-
-      } else {
-        alert("QR scanning is not supported on this device/browser. Please enter the code manually.");
-        stopScanner();
       }
     }
 
