@@ -6,22 +6,89 @@
 </head>
 
 <body style="font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: auto;">
-  <h1>Parking Codes</h1>
+  <div id="login-screen">
+    <h1>Staff Login</h1>
 
-  <label><strong>Manager Name</strong></label>
-  <input
-    id="manager-name"
-    placeholder="Enter manager name"
-    style="width:100%; padding:12px; font-size:16px; margin:8px 0 18px;"
-  />
+    <input
+      id="staff-password"
+      type="password"
+      placeholder="Enter staff password"
+      style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;"
+    />
 
-  <button onclick="loadCodes()" style="padding:10px 14px; margin-bottom:16px;">
-    Refresh Codes
-  </button>
+    <button
+      onclick="checkPassword()"
+      style="width:100%; padding:12px; background:black; color:white; border:none;"
+    >
+      Login
+    </button>
 
-  <div id="codes">Loading codes...</div>
+    <p id="login-error" style="color:red; font-weight:bold;"></p>
+  </div>
+
+  <div id="dashboard-screen" style="display:none;">
+    <h1>Parking Codes</h1>
+    <p id="staff-name-display" style="font-weight:bold;"></p>
+
+    <button onclick="loadCodes()" style="padding:10px 14px; margin-bottom:16px;">
+      Refresh Codes
+    </button>
+
+    <button onclick="logoutStaff()" style="padding:10px 14px; margin-bottom:16px;">
+      Logout
+    </button>
+
+    <div id="codes">Loading codes...</div>
+  </div>
 
   <script>
+    const STAFF_USERS = {
+      "password1": "Kasey Foster",
+      "password2": "Sara Jimenez",
+      "password3": "Shane Lohr",
+      "password4": "George Chavez"
+    };
+
+    function checkPassword() {
+      const password = document.getElementById("staff-password").value;
+      const error = document.getElementById("login-error");
+
+      if (STAFF_USERS[password]) {
+        sessionStorage.setItem("hfb_staff_logged_in", "true");
+        sessionStorage.setItem("hfb_staff_name", STAFF_USERS[password]);
+
+        showDashboard();
+      } else {
+        error.innerText = "Incorrect password.";
+      }
+    }
+
+    function showDashboard() {
+      const staffName = sessionStorage.getItem("hfb_staff_name");
+
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("dashboard-screen").style.display = "block";
+      document.getElementById("staff-name-display").innerText =
+        "Logged in as: " + staffName;
+
+      loadCodes();
+    }
+
+    function checkExistingLogin() {
+      if (
+        sessionStorage.getItem("hfb_staff_logged_in") === "true" &&
+        sessionStorage.getItem("hfb_staff_name")
+      ) {
+        showDashboard();
+      }
+    }
+
+    function logoutStaff() {
+      sessionStorage.removeItem("hfb_staff_logged_in");
+      sessionStorage.removeItem("hfb_staff_name");
+      location.reload();
+    }
+
     async function loadCodes() {
       const container = document.getElementById("codes");
       container.innerHTML = "Loading codes...";
@@ -31,6 +98,11 @@
 
       if (!data.success) {
         container.innerHTML = "Could not load codes.";
+        return;
+      }
+
+      if (!data.codes.length) {
+        container.innerHTML = "No codes found.";
         return;
       }
 
@@ -68,14 +140,16 @@
     }
 
     async function updateCode(code, action) {
-      const managerName = document.getElementById("manager-name").value.trim();
+      const managerName = sessionStorage.getItem("hfb_staff_name");
 
       if (!managerName) {
-        alert("Please enter your manager name first.");
+        alert("Please log in again.");
+        logoutStaff();
         return;
       }
 
       const label = action === "redeem" ? "redeemed" : "unredeemed";
+
       if (!confirm("Mark " + code + " as " + label + "?")) return;
 
       const response = await fetch("/api/redeem-code", {
@@ -96,7 +170,7 @@
       loadCodes();
     }
 
-    loadCodes();
+    checkExistingLogin();
   </script>
 </body>
 </html>
