@@ -33,6 +33,8 @@
       <button onclick="setFilter('today-all')" style="padding:10px 14px;">Today: All</button>
       <button onclick="setFilter('today-unredeemed')" style="padding:10px 14px;">Today: Unredeemed</button>
       <button onclick="setFilter('today-redeemed')" style="padding:10px 14px;">Today: Redeemed</button>
+      <button onclick="setFilter('30min')" style="padding:10px 14px;">Last 30 min</button>
+      <button onclick="setFilter('60min')" style="padding:10px 14px;">Last 60 min</button>
       <button onclick="setFilter('recent')" style="padding:10px 14px;">Recent Codes</button>
       <button onclick="startScanner()" style="padding:10px 14px; background:black; color:white; border:none;">Scan QR Code</button>
       <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
@@ -118,9 +120,26 @@
       );
     }
 
+    function isWithinMinutes(dateString, minutes) {
+      if (!dateString) return false;
+
+      const now = Date.now();
+      const issued = new Date(dateString).getTime();
+
+      return now - issued <= minutes * 60 * 1000;
+    }
+
     function getFilteredCodes() {
       if (currentFilter === "recent") {
         return allCodes;
+      }
+
+      if (currentFilter === "30min") {
+        return allCodes.filter(item => isWithinMinutes(item.issued_at, 30));
+      }
+
+      if (currentFilter === "60min") {
+        return allCodes.filter(item => isWithinMinutes(item.issued_at, 60));
       }
 
       const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
@@ -143,7 +162,9 @@
         "today-all": "Showing today’s codes",
         "today-unredeemed": "Showing today’s unredeemed codes",
         "today-redeemed": "Showing today’s redeemed codes",
-        "recent": "Showing recent codes"
+        "recent": "Showing recent codes",
+        "30min": "Showing last 30 minutes",
+        "60min": "Showing last 60 minutes"
       };
 
       label.innerText = labels[currentFilter] + " — " + filteredCodes.length + " found";
