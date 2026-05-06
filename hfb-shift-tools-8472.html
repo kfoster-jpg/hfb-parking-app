@@ -31,7 +31,7 @@
 
     <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:16px 0;"></div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center;">
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;">
       <select onchange="setFilter(this.value)" style="padding:10px 14px; font-size:16px;">
         <option value="today-all">Today - All</option>
         <option value="today-unredeemed">Today - Unredeemed</option>
@@ -46,6 +46,14 @@
       <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
     </div>
 
+    <input
+      id="search-input"
+      type="text"
+      placeholder="Search by code or email"
+      oninput="setSearchTerm(this.value)"
+      style="width:100%; box-sizing:border-box; padding:12px; font-size:16px; margin:4px 0 16px; border:1px solid #ccc; border-radius:8px;"
+    />
+
     <div id="scanner" style="display:none; margin:16px 0;">
       <div id="qr-reader" style="width:100%; max-width:420px;"></div>
       <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
@@ -57,6 +65,7 @@
 
   <script>
     let currentFilter = "today-all";
+    let searchTerm = "";
     let allCodes = [];
     let html5QrCode = null;
     let scannerRunning = false;
@@ -144,6 +153,11 @@
       renderCodes();
     }
 
+    function setSearchTerm(value) {
+      searchTerm = value.trim().toLowerCase();
+      renderCodes();
+    }
+
     function isToday(dateString) {
       if (!dateString) return false;
 
@@ -200,27 +214,36 @@
     }
 
     function getFilteredCodes() {
-      if (currentFilter === "recent") return allCodes;
+      let filtered = [];
 
-      if (currentFilter === "30min") {
-        return allCodes.filter(item => isWithinMinutes(item.issued_at, 30));
+      if (currentFilter === "recent") {
+        filtered = allCodes;
+      } else if (currentFilter === "30min") {
+        filtered = allCodes.filter(item => isWithinMinutes(item.issued_at, 30));
+      } else if (currentFilter === "60min") {
+        filtered = allCodes.filter(item => isWithinMinutes(item.issued_at, 60));
+      } else {
+        const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
+
+        if (currentFilter === "today-unredeemed") {
+          filtered = todaysCodes.filter(item => !item.redeemed);
+        } else if (currentFilter === "today-redeemed") {
+          filtered = todaysCodes.filter(item => item.redeemed);
+        } else {
+          filtered = todaysCodes;
+        }
       }
 
-      if (currentFilter === "60min") {
-        return allCodes.filter(item => isWithinMinutes(item.issued_at, 60));
+      if (searchTerm) {
+        filtered = filtered.filter(item => {
+          const code = (item.code || "").toLowerCase();
+          const email = (item.email || "").toLowerCase();
+
+          return code.includes(searchTerm) || email.includes(searchTerm);
+        });
       }
 
-      const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
-
-      if (currentFilter === "today-unredeemed") {
-        return todaysCodes.filter(item => !item.redeemed);
-      }
-
-      if (currentFilter === "today-redeemed") {
-        return todaysCodes.filter(item => item.redeemed);
-      }
-
-      return todaysCodes;
+      return filtered;
     }
 
     function updateFilterLabel(filteredCodes) {
@@ -235,7 +258,10 @@
         "60min": "Showing last 60 minutes"
       };
 
-      label.innerText = labels[currentFilter] + " — " + filteredCodes.length + " found";
+      const searchLabel = searchTerm ? ` matching “${searchTerm}”` : "";
+
+      label.innerText =
+        labels[currentFilter] + searchLabel + " — " + filteredCodes.length + " found";
     }
 
     async function loadCodes() {
