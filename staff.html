@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
   <title>HFB Staff Code Dashboard</title>
@@ -19,7 +19,10 @@
       style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;"
     />
 
-    <button onclick="checkPassword()" style="width:100%; padding:12px; background:black; color:white; border:none;">
+    <button
+      onclick="checkPassword()"
+      style="width:100%; padding:12px; background:black; color:white; border:none;"
+    >
       Login
     </button>
 
@@ -27,13 +30,35 @@
   </div>
 
   <div id="dashboard-screen" style="display:none;">
+
     <h1>Parking Codes</h1>
+
     <p id="staff-name-display" style="font-weight:bold;"></p>
 
-    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:16px 0;"></div>
+    <div
+      id="analytics"
+      style="
+        display:grid;
+        grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+        gap:10px;
+        margin:16px 0;
+      "
+    ></div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center;">
-      <select onchange="setFilter(this.value)" style="padding:10px 14px; font-size:16px;">
+    <div
+      style="
+        display:flex;
+        flex-wrap:wrap;
+        gap:8px;
+        margin-bottom:16px;
+        align-items:center;
+      "
+    >
+
+      <select
+        onchange="setFilter(this.value)"
+        style="padding:10px 14px; font-size:16px;"
+      >
         <option value="today-all">Today - All</option>
         <option value="today-unredeemed">Today - Unredeemed</option>
         <option value="today-redeemed">Today - Redeemed</option>
@@ -42,91 +67,178 @@
         <option value="recent">Recent Codes</option>
       </select>
 
-      <button onclick="startScanner()" style="padding:10px 14px; background:black; color:white; border:none;">Scan QR Code</button>
-      <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
-      <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
+      <button
+        onclick="startScanner()"
+        style="
+          padding:10px 14px;
+          background:black;
+          color:white;
+          border:none;
+        "
+      >
+        Scan QR Code
+      </button>
+
+      <button
+        onclick="loadCodes()"
+        style="padding:10px 14px;"
+      >
+        Refresh
+      </button>
+
+      <button
+        onclick="logoutStaff()"
+        style="padding:10px 14px;"
+      >
+        Logout
+      </button>
+
     </div>
 
     <div id="scanner" style="display:none; margin:16px 0;">
-      <div id="qr-reader" style="width:100%; max-width:420px;"></div>
-      <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
+
+      <div
+        id="qr-reader"
+        style="width:100%; max-width:420px;"
+      ></div>
+
+      <button
+        onclick="stopScanner()"
+        style="margin-top:10px; padding:10px 14px;"
+      >
+        Stop Scanner
+      </button>
+
     </div>
 
     <p id="filter-label" style="font-weight:bold;"></p>
+
     <div id="codes">Loading codes...</div>
+
   </div>
 
   <script>
+
     let currentFilter = "today-all";
+
     let allCodes = [];
+
     let html5QrCode = null;
+
     let scannerRunning = false;
 
     async function checkPassword() {
-      const password = document.getElementById("staff-password").value;
-      const error = document.getElementById("login-error");
+
+      const password =
+        document.getElementById("staff-password").value;
+
+      const error =
+        document.getElementById("login-error");
 
       error.innerText = "";
 
       try {
+
         const response = await fetch("/api/staff-login", {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ password })
+
+          body: JSON.stringify({
+            password
+          })
         });
 
         const data = await response.json();
 
         if (data.success) {
-          sessionStorage.setItem("hfb_staff_logged_in", "true");
-          sessionStorage.setItem("hfb_staff_name", data.staff_name);
+
+          sessionStorage.setItem(
+            "hfb_staff_logged_in",
+            "true"
+          );
+
+          sessionStorage.setItem(
+            "hfb_staff_name",
+            data.staff_name
+          );
+
+          sessionStorage.setItem(
+            "hfb_staff_token",
+            data.staff_token
+          );
+
           showDashboard();
+
         } else {
-          error.innerText = data.message || "Incorrect password.";
+
+          error.innerText =
+            data.message || "Incorrect password.";
         }
 
       } catch (err) {
-        error.innerText = "Login failed. Please try again.";
+
+        error.innerText =
+          "Login failed. Please try again.";
       }
     }
 
     function showDashboard() {
-      const staffName = sessionStorage.getItem("hfb_staff_name");
 
-      document.getElementById("login-screen").style.display = "none";
-      document.getElementById("dashboard-screen").style.display = "block";
-      document.getElementById("staff-name-display").innerText = "Logged in as: " + staffName;
+      const staffName =
+        sessionStorage.getItem("hfb_staff_name");
+
+      document.getElementById("login-screen").style.display =
+        "none";
+
+      document.getElementById("dashboard-screen").style.display =
+        "block";
+
+      document.getElementById("staff-name-display").innerText =
+        "Logged in as: " + staffName;
 
       loadCodes();
     }
 
     function checkExistingLogin() {
+
       if (
         sessionStorage.getItem("hfb_staff_logged_in") === "true" &&
-        sessionStorage.getItem("hfb_staff_name")
+        sessionStorage.getItem("hfb_staff_name") &&
+        sessionStorage.getItem("hfb_staff_token")
       ) {
         showDashboard();
       }
     }
 
     function logoutStaff() {
+
       stopScanner();
+
       sessionStorage.removeItem("hfb_staff_logged_in");
+
       sessionStorage.removeItem("hfb_staff_name");
+
+      sessionStorage.removeItem("hfb_staff_token");
+
       location.reload();
     }
 
     function setFilter(filter) {
+
       currentFilter = filter;
+
       renderCodes();
     }
 
     function isToday(dateString) {
+
       if (!dateString) return false;
 
       const codeDate = new Date(dateString);
+
       const today = new Date();
 
       return (
@@ -137,65 +249,134 @@
     }
 
     function isWithinMinutes(dateString, minutes) {
+
       if (!dateString) return false;
 
       const now = Date.now();
+
       const issued = new Date(dateString).getTime();
 
       return now - issued <= minutes * 60 * 1000;
     }
 
     function updateAnalytics() {
-      const analytics = document.getElementById("analytics");
-      const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
-      const redeemedToday = todaysCodes.filter(item => item.redeemed);
-      const unredeemedToday = todaysCodes.filter(item => !item.redeemed);
 
-      const redemptionRate = todaysCodes.length
-        ? Math.round((redeemedToday.length / todaysCodes.length) * 100)
-        : 0;
+      const analytics =
+        document.getElementById("analytics");
+
+      const todaysCodes =
+        allCodes.filter(item =>
+          isToday(item.issued_at)
+        );
+
+      const redeemedToday =
+        todaysCodes.filter(item => item.redeemed);
+
+      const unredeemedToday =
+        todaysCodes.filter(item => !item.redeemed);
+
+      const redemptionRate =
+        todaysCodes.length
+          ? Math.round(
+              (redeemedToday.length / todaysCodes.length) * 100
+            )
+          : 0;
 
       analytics.innerHTML = `
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Issued Today</div>
-          <div style="font-size:26px; font-weight:bold;">${todaysCodes.length}</div>
+        <div style="
+          background:white;
+          border:1px solid #ddd;
+          border-radius:12px;
+          padding:14px;
+        ">
+          <div style="font-size:13px; color:#555;">
+            Issued Today
+          </div>
+
+          <div style="font-size:26px; font-weight:bold;">
+            ${todaysCodes.length}
+          </div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Redeemed Today</div>
-          <div style="font-size:26px; font-weight:bold;">${redeemedToday.length}</div>
+        <div style="
+          background:white;
+          border:1px solid #ddd;
+          border-radius:12px;
+          padding:14px;
+        ">
+          <div style="font-size:13px; color:#555;">
+            Redeemed Today
+          </div>
+
+          <div style="font-size:26px; font-weight:bold;">
+            ${redeemedToday.length}
+          </div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Unredeemed Today</div>
-          <div style="font-size:26px; font-weight:bold;">${unredeemedToday.length}</div>
+        <div style="
+          background:white;
+          border:1px solid #ddd;
+          border-radius:12px;
+          padding:14px;
+        ">
+          <div style="font-size:13px; color:#555;">
+            Unredeemed Today
+          </div>
+
+          <div style="font-size:26px; font-weight:bold;">
+            ${unredeemedToday.length}
+          </div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Redemption Rate</div>
-          <div style="font-size:26px; font-weight:bold;">${redemptionRate}%</div>
+        <div style="
+          background:white;
+          border:1px solid #ddd;
+          border-radius:12px;
+          padding:14px;
+        ">
+          <div style="font-size:13px; color:#555;">
+            Redemption Rate
+          </div>
+
+          <div style="font-size:26px; font-weight:bold;">
+            ${redemptionRate}%
+          </div>
         </div>
       `;
     }
 
     function getFilteredCodes() {
-      if (currentFilter === "recent") return allCodes;
+
+      if (currentFilter === "recent") {
+        return allCodes;
+      }
 
       if (currentFilter === "30min") {
-        return allCodes.filter(item => isWithinMinutes(item.issued_at, 30));
+
+        return allCodes.filter(item =>
+          isWithinMinutes(item.issued_at, 30)
+        );
       }
 
       if (currentFilter === "60min") {
-        return allCodes.filter(item => isWithinMinutes(item.issued_at, 60));
+
+        return allCodes.filter(item =>
+          isWithinMinutes(item.issued_at, 60)
+        );
       }
 
-      const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
+      const todaysCodes =
+        allCodes.filter(item =>
+          isToday(item.issued_at)
+        );
 
       if (currentFilter === "today-unredeemed") {
+
         return todaysCodes.filter(item => !item.redeemed);
       }
 
       if (currentFilter === "today-redeemed") {
+
         return todaysCodes.filter(item => item.redeemed);
       }
 
@@ -203,7 +384,9 @@
     }
 
     function updateFilterLabel(filteredCodes) {
-      const label = document.getElementById("filter-label");
+
+      const label =
+        document.getElementById("filter-label");
 
       const labels = {
         "today-all": "Showing today’s codes",
@@ -214,168 +397,381 @@
         "60min": "Showing last 60 minutes"
       };
 
-      label.innerText = labels[currentFilter] + " — " + filteredCodes.length + " found";
+      label.innerText =
+        labels[currentFilter] +
+        " — " +
+        filteredCodes.length +
+        " found";
     }
 
     async function loadCodes() {
-      const container = document.getElementById("codes");
+
+      const container =
+        document.getElementById("codes");
+
+      const token =
+        sessionStorage.getItem("hfb_staff_token");
+
       container.innerHTML = "Loading codes...";
 
-      const response = await fetch("/api/list-codes");
-      const data = await response.json();
+      try {
 
-      if (!data.success) {
-        container.innerHTML = "Could not load codes.";
-        return;
+        const response = await fetch("/api/list-codes", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+
+          container.innerHTML =
+            data.message || "Could not load codes.";
+
+          return;
+        }
+
+        allCodes = data.codes || [];
+
+        updateAnalytics();
+
+        renderCodes();
+
+      } catch (err) {
+
+        container.innerHTML =
+          "Could not load codes.";
       }
-
-      allCodes = data.codes || [];
-      updateAnalytics();
-      renderCodes();
     }
 
     function renderCodes() {
-      const container = document.getElementById("codes");
-      const filteredCodes = getFilteredCodes();
+
+      const container =
+        document.getElementById("codes");
+
+      const filteredCodes =
+        getFilteredCodes();
 
       updateFilterLabel(filteredCodes);
 
       if (!filteredCodes.length) {
+
         container.innerHTML = `
-          <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:18px;">
+          <div style="
+            background:white;
+            border:1px solid #ddd;
+            border-radius:12px;
+            padding:18px;
+          ">
             No codes found for this view.
           </div>
         `;
+
         return;
       }
 
-      container.innerHTML = filteredCodes.map(item => {
-        const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
-        const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
+      container.innerHTML =
+        filteredCodes.map(item => {
 
-        const cardStyle = item.redeemed
-          ? "border:1px solid #d1d5db; background:#f3f4f6; opacity:.78;"
-          : "border:2px solid #f59e0b; background:#fff7ed;";
+          const issued =
+            item.issued_at
+              ? new Date(item.issued_at).toLocaleString()
+              : "Unknown";
 
-        const badge = item.redeemed
-          ? `<span style="display:inline-block; background:#d1d5db; color:#374151; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">REDEEMED</span>`
-          : `<span style="display:inline-block; background:#f59e0b; color:#111827; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">NEEDS REDEMPTION</span>`;
+          const redeemedAt =
+            item.redeemed_at
+              ? new Date(item.redeemed_at).toLocaleString()
+              : "";
 
-        return `
-          <div style="${cardStyle} border-radius:14px; padding:18px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);">
-            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
-              <div style="font-size:28px; font-weight:bold; letter-spacing:1.5px;">
-                ${item.code}
+          const cardStyle =
+            item.redeemed
+              ? `
+                  border:1px solid #d1d5db;
+                  background:#f3f4f6;
+                  opacity:.78;
+                `
+              : `
+                  border:2px solid #f59e0b;
+                  background:#fff7ed;
+                `;
+
+          const badge =
+            item.redeemed
+              ? `
+                  <span style="
+                    display:inline-block;
+                    background:#d1d5db;
+                    color:#374151;
+                    padding:6px 10px;
+                    border-radius:999px;
+                    font-size:13px;
+                    font-weight:bold;
+                  ">
+                    REDEEMED
+                  </span>
+                `
+              : `
+                  <span style="
+                    display:inline-block;
+                    background:#f59e0b;
+                    color:#111827;
+                    padding:6px 10px;
+                    border-radius:999px;
+                    font-size:13px;
+                    font-weight:bold;
+                  ">
+                    NEEDS REDEMPTION
+                  </span>
+                `;
+
+          return `
+            <div style="
+              ${cardStyle}
+              border-radius:14px;
+              padding:18px;
+              margin-bottom:12px;
+              box-shadow:0 1px 4px rgba(0,0,0,.06);
+            ">
+
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                gap:12px;
+                align-items:flex-start;
+                flex-wrap:wrap;
+              ">
+
+                <div style="
+                  font-size:28px;
+                  font-weight:bold;
+                  letter-spacing:1.5px;
+                ">
+                  ${item.code}
+                </div>
+
+                ${badge}
+
               </div>
-              ${badge}
-            </div>
 
-            <div style="margin-top:12px; line-height:1.6;">
-              <strong>Email:</strong> ${item.email || "N/A"}<br>
-              <strong>Issued:</strong> ${issued}<br>
-              <strong>Status:</strong> ${
+              <div style="
+                margin-top:12px;
+                line-height:1.6;
+              ">
+
+                <strong>Email:</strong>
+                ${item.email || "N/A"}<br>
+
+                <strong>Issued:</strong>
+                ${issued}<br>
+
+                <strong>Status:</strong>
+                ${
+                  item.redeemed
+                    ? "✅ Redeemed" +
+                      (redeemedAt
+                        ? " at " + redeemedAt
+                        : "")
+                    : "🟡 Not redeemed"
+                }<br>
+
+                <strong>Redeemed By:</strong>
+                ${item.redeemed_by || "N/A"}
+
+              </div>
+
+              ${
                 item.redeemed
-                  ? "✅ Redeemed" + (redeemedAt ? " at " + redeemedAt : "")
-                  : "🟡 Not redeemed"
-              }<br>
-              <strong>Redeemed By:</strong> ${item.redeemed_by || "N/A"}
-            </div>
+                  ? `
+                    <button
+                      onclick="updateCode('${item.code}', 'unredeem')"
+                      style="
+                        margin-top:14px;
+                        padding:10px 14px;
+                        border:1px solid #aaa;
+                        background:white;
+                        border-radius:6px;
+                      "
+                    >
+                      Mark Unredeemed
+                    </button>
+                  `
+                  : `
+                    <button
+                      onclick="updateCode('${item.code}', 'redeem')"
+                      style="
+                        margin-top:14px;
+                        padding:12px 16px;
+                        background:black;
+                        color:white;
+                        border:none;
+                        border-radius:6px;
+                        font-weight:bold;
+                      "
+                    >
+                      Mark Redeemed
+                    </button>
+                  `
+              }
 
-            ${
-              item.redeemed
-                ? `<button onclick="updateCode('${item.code}', 'unredeem')" style="margin-top:14px; padding:10px 14px; border:1px solid #aaa; background:white; border-radius:6px;">
-                    Mark Unredeemed
-                  </button>`
-                : `<button onclick="updateCode('${item.code}', 'redeem')" style="margin-top:14px; padding:12px 16px; background:black; color:white; border:none; border-radius:6px; font-weight:bold;">
-                    Mark Redeemed
-                  </button>`
-            }
-          </div>
-        `;
-      }).join("");
+            </div>
+          `;
+        }).join("");
     }
 
     async function updateCode(code, action) {
-      const managerName = sessionStorage.getItem("hfb_staff_name");
 
-      if (!managerName) {
+      const managerName =
+        sessionStorage.getItem("hfb_staff_name");
+
+      const token =
+        sessionStorage.getItem("hfb_staff_token");
+
+      if (!managerName || !token) {
+
         alert("Please log in again.");
+
         logoutStaff();
+
         return;
       }
 
-      const label = action === "redeem" ? "redeemed" : "unredeemed";
+      const label =
+        action === "redeem"
+          ? "redeemed"
+          : "unredeemed";
 
-      if (!confirm("Mark " + code + " as " + label + "?")) return;
+      if (!confirm(
+        "Mark " + code + " as " + label + "?"
+      )) {
+        return;
+      }
 
-      const response = await fetch("/api/redeem-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: code,
-          manager_name: managerName,
-          action: action
-        })
-      });
+      try {
 
-      const data = await response.json();
+        const response =
+          await fetch("/api/redeem-code", {
 
-      alert(data.message || "Updated.");
-      loadCodes();
+            method: "POST",
+
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+
+            body: JSON.stringify({
+              code: code,
+              manager_name: managerName,
+              action: action
+            })
+          });
+
+        const data = await response.json();
+
+        alert(data.message || "Updated.");
+
+        loadCodes();
+
+      } catch (err) {
+
+        alert("Could not update code.");
+      }
     }
 
     async function startScanner() {
-      const scanner = document.getElementById("scanner");
+
+      const scanner =
+        document.getElementById("scanner");
+
       scanner.style.display = "block";
 
       if (scannerRunning) return;
 
-      html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode =
+        new Html5Qrcode("qr-reader");
 
       try {
+
         scannerRunning = true;
 
         await html5QrCode.start(
           { facingMode: "environment" },
+
           {
             fps: 10,
-            qrbox: { width: 250, height: 250 }
+
+            qrbox: {
+              width: 250,
+              height: 250
+            }
           },
+
           async function(decodedText) {
+
             await stopScanner();
+
             handleScannedCode(decodedText);
           },
-          function(errorMessage) {}
+
+          function(errorMessage) {
+            // Ignore normal misses
+          }
         );
 
       } catch (err) {
+
         scannerRunning = false;
-        alert("Camera access failed or QR scanner could not start. Please enter the code manually.");
+
+        alert(
+          "Camera access failed or QR scanner could not start."
+        );
       }
     }
 
     async function stopScanner() {
+
       if (html5QrCode && scannerRunning) {
+
         try {
+
           await html5QrCode.stop();
+
           await html5QrCode.clear();
-        } catch (err) {}
+
+        } catch (err) {
+          // Ignore cleanup errors
+        }
       }
 
       html5QrCode = null;
+
       scannerRunning = false;
 
-      const scanner = document.getElementById("scanner");
-      if (scanner) scanner.style.display = "none";
+      const scanner =
+        document.getElementById("scanner");
+
+      if (scanner) {
+
+        scanner.style.display = "none";
+      }
     }
 
     function handleScannedCode(code) {
-      const cleaned = code.replace("HFB-", "").trim().toUpperCase();
-      const finalCode = "HFB-" + cleaned;
+
+      const cleaned =
+        code.replace("HFB-", "")
+          .trim()
+          .toUpperCase();
+
+      const finalCode =
+        "HFB-" + cleaned;
+
       updateCode(finalCode, "redeem");
     }
 
     checkExistingLogin();
+
   </script>
+
 </body>
 </html>
