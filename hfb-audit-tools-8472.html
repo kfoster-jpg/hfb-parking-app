@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HFB Audit Tools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body style="font-family: Arial, sans-serif; padding:24px; max-width:900px; margin:auto; background:#f6f6f4;">
+
+  <h1>Code Audit History</h1>
+
+  <p style="font-weight:bold;">
+    This page uses the same staff login session as the parking code dashboard.
+  </p>
+
+  <button onclick="loadEvents()" style="padding:10px 14px; margin-bottom:12px;">
+    Refresh Events
+  </button>
+
+  <button onclick="logoutStaff()" style="padding:10px 14px; margin-bottom:12px;">
+    Logout
+  </button>
+
+  <div id="status" style="font-weight:bold; margin:12px 0;"></div>
+
+  <div id="events">Loading events...</div>
+
+  <script>
+    function clearStaffSession() {
+      sessionStorage.removeItem("hfb_staff_logged_in");
+      sessionStorage.removeItem("hfb_staff_name");
+      sessionStorage.removeItem("hfb_staff_token");
+    }
+
+    function logoutStaff() {
+      clearStaffSession();
+      location.href = "/hfb-shift-tools-8472.html";
+    }
+
+    function requireLogin() {
+      const token = sessionStorage.getItem("hfb_staff_token");
+
+      if (!token) {
+        document.getElementById("events").innerHTML =
+          "Please log in through the staff dashboard first.";
+
+        setTimeout(function() {
+          location.href = "/hfb-shift-tools-8472.html";
+        }, 1500);
+
+        return false;
+      }
+
+      return true;
+    }
+
+    function getActionLabel(action) {
+      if (action === "redeem") return "✅ Redeemed";
+      if (action === "unredeem") return "↩️ Marked Unredeemed";
+      if (action === "manual_issue") return "📝 Manual Issue";
+      return action;
+    }
+
+    async function loadEvents() {
+      if (!requireLogin()) return;
+
+      const token = sessionStorage.getItem("hfb_staff_token");
+      const eventsContainer = document.getElementById("events");
+      const status = document.getElementById("status");
+
+      eventsContainer.innerHTML = "Loading events...";
+      status.innerText = "";
+
+      try {
+        const response = await fetch("/api/list-code-events", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.status === 401) {
+          clearStaffSession();
+          status.innerText = "Session expired. Please log in again.";
+
+          setTimeout(function() {
+            location.href = "/hfb-shift-tools-8472.html";
+          }, 1500);
+
+          return;
+        }
+
+        if (!data.success) {
+          eventsContainer.innerHTML = "Could not load audit events.";
+          return;
+        }
+
+        if (!data.events.length) {
+          eventsContainer.innerHTML = "No audit events found.";
+          return;
+        }
+
+        status.innerText = data.events.length + " events loaded.";
+
+        eventsContainer.innerHTML = data.events.map(event => {
+          const createdAt = event.created_at
+            ? new Date(event.created_at).toLocaleString()
+            : "Unknown";
+
+          return `
+            <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:16px; margin-bottom:12px;">
+              <div style="font-size:22px; font-weight:bold; letter-spacing:1px;">
+                ${event.code}
+              </div>
+
+              <div style="margin-top:8px; line-height:1.6;">
+                <strong>Action:</strong> ${getActionLabel(event.action)}<br>
+                <strong>Staff:</strong> ${event.staff_name || "N/A"}<br>
+                <strong>Time:</strong> ${createdAt}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      } catch (err) {
+        eventsContainer.innerHTML = "Could not load audit events.";
+      }
+    }
+
+    loadEvents();
+  </script>
+
+</body>
+</html>
