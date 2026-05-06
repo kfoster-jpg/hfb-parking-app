@@ -1,10 +1,57 @@
+import crypto from 'crypto';
+
+function verifyParkingToken(req) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace('Bearer ', '');
+
+  if (!token || !token.includes('.')) {
+    return null;
+  }
+
+  const [payloadBase64, signature] = token.split('.');
+  const secret = process.env.PARKING_SESSION_SECRET;
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payloadBase64)
+    .digest('base64url');
+
+  if (signature !== expectedSignature) {
+    return null;
+  }
+
+  const payload = JSON.parse(
+    Buffer.from(payloadBase64, 'base64url').toString()
+  );
+
+  if (
+    !payload.verified_parking ||
+    !payload.expires_at ||
+    Date.now() > payload.expires_at
+  ) {
+    return null;
+  }
+
+  return payload;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  const parking = verifyParkingToken(req);
+
+  if (!parking) {
+    return res.status(401).json({
+      allowed: false,
+      saved: false,
+      message: 'Parking verification expired. Please scan again from the satellite parking area.'
+    });
   }
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
