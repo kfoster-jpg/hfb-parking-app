@@ -12,7 +12,12 @@
   <div id="login-screen">
     <h1>Staff Login</h1>
 
-    <input id="staff-password" type="password" placeholder="Enter staff password" style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;" />
+    <input
+      id="staff-password"
+      type="password"
+      placeholder="Enter staff password"
+      style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;"
+    />
 
     <button onclick="checkPassword()" style="width:100%; padding:12px; background:black; color:white; border:none;">
       Login
@@ -24,6 +29,8 @@
   <div id="dashboard-screen" style="display:none;">
     <h1>Parking Codes</h1>
     <p id="staff-name-display" style="font-weight:bold;"></p>
+
+    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:16px 0;"></div>
 
     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center;">
       <select onchange="setFilter(this.value)" style="padding:10px 14px; font-size:16px;">
@@ -50,28 +57,38 @@
   </div>
 
   <script>
-    const STAFF_USERS = {
-      "password1": "Josh",
-      "password2": "Crysten",
-      "password3": "Manager 1",
-      "password4": "Manager 2"
-    };
-
     let currentFilter = "today-all";
     let allCodes = [];
     let html5QrCode = null;
     let scannerRunning = false;
 
-    function checkPassword() {
+    async function checkPassword() {
       const password = document.getElementById("staff-password").value;
       const error = document.getElementById("login-error");
 
-      if (STAFF_USERS[password]) {
-        sessionStorage.setItem("hfb_staff_logged_in", "true");
-        sessionStorage.setItem("hfb_staff_name", STAFF_USERS[password]);
-        showDashboard();
-      } else {
-        error.innerText = "Incorrect password.";
+      error.innerText = "";
+
+      try {
+        const response = await fetch("/api/staff-login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          sessionStorage.setItem("hfb_staff_logged_in", "true");
+          sessionStorage.setItem("hfb_staff_name", data.staff_name);
+          showDashboard();
+        } else {
+          error.innerText = data.message || "Incorrect password.";
+        }
+
+      } catch (err) {
+        error.innerText = "Login failed. Please try again.";
       }
     }
 
@@ -128,6 +145,39 @@
       return now - issued <= minutes * 60 * 1000;
     }
 
+    function updateAnalytics() {
+      const analytics = document.getElementById("analytics");
+      const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
+      const redeemedToday = todaysCodes.filter(item => item.redeemed);
+      const unredeemedToday = todaysCodes.filter(item => !item.redeemed);
+
+      const redemptionRate = todaysCodes.length
+        ? Math.round((redeemedToday.length / todaysCodes.length) * 100)
+        : 0;
+
+      analytics.innerHTML = `
+        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
+          <div style="font-size:13px; color:#555;">Issued Today</div>
+          <div style="font-size:26px; font-weight:bold;">${todaysCodes.length}</div>
+        </div>
+
+        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
+          <div style="font-size:13px; color:#555;">Redeemed Today</div>
+          <div style="font-size:26px; font-weight:bold;">${redeemedToday.length}</div>
+        </div>
+
+        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
+          <div style="font-size:13px; color:#555;">Unredeemed Today</div>
+          <div style="font-size:26px; font-weight:bold;">${unredeemedToday.length}</div>
+        </div>
+
+        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
+          <div style="font-size:13px; color:#555;">Redemption Rate</div>
+          <div style="font-size:26px; font-weight:bold;">${redemptionRate}%</div>
+        </div>
+      `;
+    }
+
     function getFilteredCodes() {
       if (currentFilter === "recent") return allCodes;
 
@@ -180,6 +230,7 @@
       }
 
       allCodes = data.codes || [];
+      updateAnalytics();
       renderCodes();
     }
 
