@@ -42,6 +42,7 @@
       </select>
 
       <button onclick="startScanner()" style="padding:10px 14px; background:black; color:white; border:none;">Scan QR Code</button>
+      <button onclick="manualIssueCode()" style="padding:10px 14px; background:#7c2d12; color:white; border:none;">Manual Issue Code</button>
       <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
       <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
     </div>
@@ -429,6 +430,58 @@
 
       } catch (err) {
         alert("Could not update code.");
+      }
+    }
+
+    async function manualIssueCode() {
+      const token = sessionStorage.getItem("hfb_staff_token");
+
+      if (!token) {
+        handleSessionExpired();
+        return;
+      }
+
+      const email = prompt("Enter the guest's email for this manual code:");
+
+      if (!email || !email.trim()) {
+        return;
+      }
+
+      const confirmed = confirm("Manually issue a parking code to " + email.trim() + "?");
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/manual-issue-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            email: email.trim()
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.status === 401) {
+          handleSessionExpired();
+          return;
+        }
+
+        if (!data.success) {
+          alert(data.message || "Could not manually issue code.");
+          return;
+        }
+
+        alert("Manual code issued: " + data.code.code);
+        loadCodes();
+
+      } catch (err) {
+        alert("Could not manually issue code.");
       }
     }
 
