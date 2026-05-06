@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 function createStaffToken(staffName) {
   const secret = process.env.STAFF_SESSION_SECRET;
-  const expiresAt = Date.now() + 8 * 60 * 60 * 1000; // 8 hours
+  const expiresAt = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
 
   const payload = JSON.stringify({
     staff_name: staffName,
