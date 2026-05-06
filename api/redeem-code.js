@@ -31,6 +31,35 @@ function verifyStaffToken(req) {
   return payload;
 }
 
+async function createAuditEvent({
+  code,
+  action,
+  staffName,
+  SUPABASE_URL,
+  SUPABASE_KEY
+}) {
+  try {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/code_events`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        },
+        body: JSON.stringify({
+          code,
+          action,
+          staff_name: staffName
+        })
+      }
+    );
+  } catch (err) {
+    console.error('Audit event failed:', err.message);
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -69,6 +98,7 @@ export default async function handler(req, res) {
   }
 
   const normalizedCode = code.trim().toUpperCase();
+
   const requestedAction = action || 'redeem';
 
   const managerName =
@@ -101,6 +131,7 @@ export default async function handler(req, res) {
     let updateBody = {};
 
     if (requestedAction === 'redeem') {
+
       if (existingCode.redeemed === true) {
         return res.status(409).json({
           success: false,
@@ -116,6 +147,7 @@ export default async function handler(req, res) {
     }
 
     if (requestedAction === 'unredeem') {
+
       if (existingCode.redeemed !== true) {
         return res.status(409).json({
           success: false,
@@ -161,6 +193,14 @@ export default async function handler(req, res) {
         error: updated
       });
     }
+
+    await createAuditEvent({
+      code: normalizedCode,
+      action: requestedAction,
+      staffName: managerName,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
 
     return res.status(200).json({
       success: true,
