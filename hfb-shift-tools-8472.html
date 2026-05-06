@@ -180,11 +180,23 @@
       return now - issued <= minutes * 60 * 1000;
     }
 
+    function isOlderThanMinutes(dateString, minutes) {
+      if (!dateString) return false;
+
+      const now = Date.now();
+      const issued = new Date(dateString).getTime();
+
+      return now - issued > minutes * 60 * 1000;
+    }
+
     function updateAnalytics() {
       const analytics = document.getElementById("analytics");
       const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
       const redeemedToday = todaysCodes.filter(item => item.redeemed);
       const unredeemedToday = todaysCodes.filter(item => !item.redeemed);
+      const staleUnredeemedToday = todaysCodes.filter(item =>
+        !item.redeemed && isOlderThanMinutes(item.issued_at, 60)
+      );
 
       const redemptionRate = todaysCodes.length
         ? Math.round((redeemedToday.length / todaysCodes.length) * 100)
@@ -204,6 +216,11 @@
         <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
           <div style="font-size:13px; color:#555;">Unredeemed Today</div>
           <div style="font-size:26px; font-weight:bold;">${unredeemedToday.length}</div>
+        </div>
+
+        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
+          <div style="font-size:13px; color:#555;">Older Than 60 Min</div>
+          <div style="font-size:26px; font-weight:bold;">${staleUnredeemedToday.length}</div>
         </div>
 
         <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
@@ -317,14 +334,21 @@
       container.innerHTML = filteredCodes.map(item => {
         const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
         const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
+        const isStale = !item.redeemed && isOlderThanMinutes(item.issued_at, 60);
 
         const cardStyle = item.redeemed
           ? "border:1px solid #d1d5db; background:#f3f4f6; opacity:.78;"
-          : "border:2px solid #f59e0b; background:#fff7ed;";
+          : isStale
+            ? "border:2px solid #dc2626; background:#fef2f2;"
+            : "border:2px solid #f59e0b; background:#fff7ed;";
 
-        const badge = item.redeemed
+        const statusBadge = item.redeemed
           ? `<span style="display:inline-block; background:#d1d5db; color:#374151; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">REDEEMED</span>`
           : `<span style="display:inline-block; background:#f59e0b; color:#111827; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">NEEDS REDEMPTION</span>`;
+
+        const staleBadge = isStale
+          ? `<span style="display:inline-block; background:#dc2626; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">OLDER THAN 60 MIN</span>`
+          : "";
 
         return `
           <div style="${cardStyle} border-radius:14px; padding:18px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);">
@@ -333,7 +357,10 @@
                 ${item.code}
               </div>
 
-              ${badge}
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${statusBadge}
+                ${staleBadge}
+              </div>
             </div>
 
             <div style="margin-top:12px; line-height:1.6;">
@@ -342,7 +369,9 @@
               <strong>Status:</strong> ${
                 item.redeemed
                   ? "✅ Redeemed" + (redeemedAt ? " at " + redeemedAt : "")
-                  : "🟡 Not redeemed"
+                  : isStale
+                    ? "🔴 Not redeemed — older than 60 minutes"
+                    : "🟡 Not redeemed"
               }<br>
               <strong>Redeemed By:</strong> ${item.redeemed_by || "N/A"}
             </div>
