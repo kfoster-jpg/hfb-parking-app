@@ -49,9 +49,6 @@ export default async function handler(req, res) {
     });
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-
   if (req.method !== 'GET') {
     return res.status(405).json({
       success: false,
@@ -59,9 +56,12 @@ export default async function handler(req, res) {
     });
   }
 
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/discount_codes?select=id,code,email,issued_at,redeemed,redeemed_at,redeemed_by,unredeemed_at&order=issued_at.desc&limit=100`,
+      `${SUPABASE_URL}/rest/v1/discount_codes?select=id,code,email,issued_at,redeemed,redeemed_at,redeemed_by,unredeemed_at,manual_issue_reason&order=issued_at.desc&limit=100`,
       {
         headers: {
           'apikey': SUPABASE_KEY,
