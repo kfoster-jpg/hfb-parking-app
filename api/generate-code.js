@@ -1,5 +1,13 @@
 import crypto from 'crypto';
 
+function getIpAddress(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+
+  return typeof forwarded === 'string'
+    ? forwarded.split(',')[0].trim()
+    : req.socket?.remoteAddress || 'unknown';
+}
+
 function verifyParkingToken(req) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace('Bearer ', '');
@@ -35,6 +43,64 @@ function verifyParkingToken(req) {
   return payload;
 }
 
+async function recordGuestAttempt({
+  ipAddress,
+  success,
+  SUPABASE_URL,
+  SUPABASE_KEY
+}) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/guest_code_attempts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      },
+      body: JSON.stringify({
+        ip_address: ipAddress,
+        success
+      })
+    });
+  } catch (err) {
+    console.error('Guest request audit failed:', err.message);
+  }
+}
+
+async function isGuestRateLimited({
+  ipAddress,
+  SUPABASE_URL,
+  SUPABASE_KEY
+}) {
+  const fifteenMinutesAgo =
+    new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/guest_code_attempts?ip_address=eq.${encodeURIComponent(ipAddress)}&attempted_at=gte.${encodeURIComponent(fifteenMinutesAgo)}&select=id`,
+    {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    }
+  );
+
+  const data = await response.json();
+
+  return data.length >= 20;
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = 'HFB-';
+
+  for (let i = 0; i < 5; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+
+  return result;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -44,9 +110,50 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+  const ipAddress = getIpAddress(req);
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      allowed: false,
+      saved: false,
+      message: 'Method not allowed.'
+    });
+  }
+
+  try {
+    const limited = await isGuestRateLimited({
+      ipAddress,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
+
+    if (limited) {
+      return res.status(429).json({
+        allowed: false,
+        saved: false,
+        message: 'Too many requests. Please wait a few minutes before trying again.'
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({
+      allowed: false,
+      saved: false,
+      message: 'Could not validate request limit.'
+    });
+  }
+
   const parking = verifyParkingToken(req);
 
   if (!parking) {
+    await recordGuestAttempt({
+      ipAddress,
+      success: false,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
+
     return res.status(401).json({
       allowed: false,
       saved: false,
@@ -54,17 +161,21 @@ export default async function handler(req, res) {
     });
   }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   const { email, device_id } = req.body;
 
   if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
+    await recordGuestAttempt({
+      ipAddress,
+      success: false,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
+
+    return res.status(400).json({
+      allowed: false,
+      saved: false,
+      message: 'Email is required.'
+    });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -84,6 +195,13 @@ export default async function handler(req, res) {
     const emailMatches = await emailCheck.json();
 
     if (emailMatches.length > 0) {
+      await recordGuestAttempt({
+        ipAddress,
+        success: false,
+        SUPABASE_URL,
+        SUPABASE_KEY
+      });
+
       return res.status(429).json({
         allowed: false,
         reason: 'email_recently_used',
@@ -105,23 +223,19 @@ export default async function handler(req, res) {
       const deviceMatches = await deviceCheck.json();
 
       if (deviceMatches.length > 0) {
+        await recordGuestAttempt({
+          ipAddress,
+          success: false,
+          SUPABASE_URL,
+          SUPABASE_KEY
+        });
+
         return res.status(429).json({
           allowed: false,
           reason: 'device_recently_used',
           message: 'This device has already received a code recently.'
         });
       }
-    }
-
-    function generateCode() {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let result = 'HFB-';
-
-      for (let i = 0; i < 5; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-
-      return result;
     }
 
     const code = generateCode();
@@ -135,9 +249,9 @@ export default async function handler(req, res) {
         'Prefer': 'return=representation'
       },
       body: JSON.stringify({
-        code: code,
+        code,
         email: normalizedEmail,
-        device_id: device_id,
+        device_id,
         issued_at: new Date().toISOString(),
         redeemed: false
       })
@@ -146,11 +260,26 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
+      await recordGuestAttempt({
+        ipAddress,
+        success: false,
+        SUPABASE_URL,
+        SUPABASE_KEY
+      });
+
       return res.status(500).json({
+        allowed: false,
         saved: false,
         error: data
       });
     }
+
+    await recordGuestAttempt({
+      ipAddress,
+      success: true,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
 
     return res.status(200).json({
       allowed: true,
@@ -159,7 +288,15 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
+    await recordGuestAttempt({
+      ipAddress,
+      success: false,
+      SUPABASE_URL,
+      SUPABASE_KEY
+    });
+
     return res.status(500).json({
+      allowed: false,
       saved: false,
       error: err.message
     });
