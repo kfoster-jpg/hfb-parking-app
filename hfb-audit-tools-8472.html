@@ -13,19 +13,47 @@
     This page uses the same staff login session as the parking code dashboard.
   </p>
 
-  <button onclick="loadEvents()" style="padding:10px 14px; margin-bottom:12px;">
-    Refresh Events
-  </button>
+  <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+    <select id="action-filter" onchange="renderEvents()" style="padding:10px 14px; font-size:16px;">
+      <option value="all">All Actions</option>
+      <option value="redeem">Redeemed</option>
+      <option value="unredeem">Unredeemed</option>
+      <option value="manual_issue">Manual Issue</option>
+    </select>
 
-  <button onclick="logoutStaff()" style="padding:10px 14px; margin-bottom:12px;">
-    Logout
-  </button>
+    <select id="date-filter" onchange="renderEvents()" style="padding:10px 14px; font-size:16px;">
+      <option value="today">Today Only</option>
+      <option value="all">All Recent</option>
+    </select>
+
+    <button onclick="loadEvents()" style="padding:10px 14px;">
+      Refresh Events
+    </button>
+
+    <button onclick="location.href='/hfb-shift-tools-8472.html'" style="padding:10px 14px;">
+      Back to Dashboard
+    </button>
+
+    <button onclick="logoutStaff()" style="padding:10px 14px;">
+      Logout
+    </button>
+  </div>
+
+  <input
+    id="search-input"
+    type="text"
+    placeholder="Search by code or staff name"
+    oninput="renderEvents()"
+    style="width:100%; box-sizing:border-box; padding:12px; font-size:16px; margin:4px 0 16px; border:1px solid #ccc; border-radius:8px;"
+  />
 
   <div id="status" style="font-weight:bold; margin:12px 0;"></div>
 
   <div id="events">Loading events...</div>
 
   <script>
+    let allEvents = [];
+
     function clearStaffSession() {
       sessionStorage.removeItem("hfb_staff_logged_in");
       sessionStorage.removeItem("hfb_staff_name");
@@ -54,11 +82,121 @@
       return true;
     }
 
+    function isToday(dateString) {
+      if (!dateString) return false;
+
+      const eventDate = new Date(dateString);
+      const today = new Date();
+
+      return (
+        eventDate.getFullYear() === today.getFullYear() &&
+        eventDate.getMonth() === today.getMonth() &&
+        eventDate.getDate() === today.getDate()
+      );
+    }
+
     function getActionLabel(action) {
       if (action === "redeem") return "✅ Redeemed";
       if (action === "unredeem") return "↩️ Marked Unredeemed";
-      if (action === "manual_issue") return "📝 Manual Issue";
-      return action;
+      if (action && action.startsWith("manual_issue")) return "📝 Manual Issue";
+      return action || "Unknown";
+    }
+
+    function getActionBadge(action) {
+      if (action === "redeem") {
+        return `<span style="display:inline-block; background:#dcfce7; color:#166534; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">REDEEMED</span>`;
+      }
+
+      if (action === "unredeem") {
+        return `<span style="display:inline-block; background:#e0f2fe; color:#075985; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">UNREDEEMED</span>`;
+      }
+
+      if (action && action.startsWith("manual_issue")) {
+        return `<span style="display:inline-block; background:#ffedd5; color:#9a3412; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">MANUAL ISSUE</span>`;
+      }
+
+      return `<span style="display:inline-block; background:#e5e7eb; color:#374151; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">OTHER</span>`;
+    }
+
+    function getFilteredEvents() {
+      const actionFilter = document.getElementById("action-filter").value;
+      const dateFilter = document.getElementById("date-filter").value;
+      const searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
+
+      let filtered = allEvents;
+
+      if (dateFilter === "today") {
+        filtered = filtered.filter(event => isToday(event.created_at));
+      }
+
+      if (actionFilter !== "all") {
+        if (actionFilter === "manual_issue") {
+          filtered = filtered.filter(event =>
+            event.action && event.action.startsWith("manual_issue")
+          );
+        } else {
+          filtered = filtered.filter(event => event.action === actionFilter);
+        }
+      }
+
+      if (searchTerm) {
+        filtered = filtered.filter(event => {
+          const code = (event.code || "").toLowerCase();
+          const staff = (event.staff_name || "").toLowerCase();
+          const action = (event.action || "").toLowerCase();
+
+          return (
+            code.includes(searchTerm) ||
+            staff.includes(searchTerm) ||
+            action.includes(searchTerm)
+          );
+        });
+      }
+
+      return filtered;
+    }
+
+    function renderEvents() {
+      const eventsContainer = document.getElementById("events");
+      const status = document.getElementById("status");
+      const filteredEvents = getFilteredEvents();
+
+      status.innerText = filteredEvents.length + " event(s) shown.";
+
+      if (!filteredEvents.length) {
+        eventsContainer.innerHTML = `
+          <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:16px;">
+            No audit events found for this view.
+          </div>
+        `;
+        return;
+      }
+
+      eventsContainer.innerHTML = filteredEvents.map(event => {
+        const createdAt = event.created_at
+          ? new Date(event.created_at).toLocaleString()
+          : "Unknown";
+
+        const actionText = getActionLabel(event.action);
+        const badge = getActionBadge(event.action);
+
+        return `
+          <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:16px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+              <div style="font-size:22px; font-weight:bold; letter-spacing:1px;">
+                ${event.code}
+              </div>
+              ${badge}
+            </div>
+
+            <div style="margin-top:8px; line-height:1.6;">
+              <strong>Action:</strong> ${actionText}<br>
+              <strong>Staff:</strong> ${event.staff_name || "N/A"}<br>
+              <strong>Time:</strong> ${createdAt}
+            </div>
+          </div>
+        `;
+      }).join("");
     }
 
     async function loadEvents() {
@@ -96,32 +234,8 @@
           return;
         }
 
-        if (!data.events.length) {
-          eventsContainer.innerHTML = "No audit events found.";
-          return;
-        }
-
-        status.innerText = data.events.length + " events loaded.";
-
-        eventsContainer.innerHTML = data.events.map(event => {
-          const createdAt = event.created_at
-            ? new Date(event.created_at).toLocaleString()
-            : "Unknown";
-
-          return `
-            <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:16px; margin-bottom:12px;">
-              <div style="font-size:22px; font-weight:bold; letter-spacing:1px;">
-                ${event.code}
-              </div>
-
-              <div style="margin-top:8px; line-height:1.6;">
-                <strong>Action:</strong> ${getActionLabel(event.action)}<br>
-                <strong>Staff:</strong> ${event.staff_name || "N/A"}<br>
-                <strong>Time:</strong> ${createdAt}
-              </div>
-            </div>
-          `;
-        }).join("");
+        allEvents = data.events || [];
+        renderEvents();
 
       } catch (err) {
         eventsContainer.innerHTML = "Could not load audit events.";
