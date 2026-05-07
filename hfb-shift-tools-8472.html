@@ -352,6 +352,10 @@
           ? `<span style="display:inline-block; background:#dc2626; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">OLDER THAN 60 MIN</span>`
           : "";
 
+        const manualReason = item.manual_issue_reason
+          ? `<br><strong>Manual Issue Reason:</strong> ${item.manual_issue_reason}`
+          : "";
+
         return `
           <div style="${cardStyle} border-radius:14px; padding:18px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);">
             <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;">
@@ -376,6 +380,7 @@
                     : "🟡 Not redeemed"
               }<br>
               <strong>Redeemed By:</strong> ${item.redeemed_by || "N/A"}
+              ${manualReason}
             </div>
 
             ${
@@ -448,7 +453,42 @@
         return;
       }
 
-      const confirmed = confirm("Manually issue a parking code to " + email.trim() + "?");
+      const reasonChoice = prompt(
+        "Reason for manual issue:\n\n" +
+        "1 = Location issue\n" +
+        "2 = Guest phone problem\n" +
+        "3 = Manager approved\n" +
+        "4 = Other\n\n" +
+        "Enter 1, 2, 3, or 4:"
+      );
+
+      let reason = "";
+
+      if (reasonChoice === "1") {
+        reason = "Location issue";
+      } else if (reasonChoice === "2") {
+        reason = "Guest phone problem";
+      } else if (reasonChoice === "3") {
+        reason = "Manager approved";
+      } else if (reasonChoice === "4") {
+        const customReason = prompt("Enter reason:");
+
+        if (!customReason || !customReason.trim()) {
+          reason = "Other";
+        } else {
+          reason = "Other: " + customReason.trim();
+        }
+      } else {
+        alert("Manual issue canceled. Please select a valid reason.");
+        return;
+      }
+
+      const confirmed = confirm(
+        "Manually issue a parking code to " +
+        email.trim() +
+        "?\n\nReason: " +
+        reason
+      );
 
       if (!confirmed) {
         return;
@@ -462,7 +502,8 @@
             "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({
-            email: email.trim()
+            email: email.trim(),
+            reason: reason
           })
         });
 
