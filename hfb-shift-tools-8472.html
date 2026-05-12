@@ -57,16 +57,21 @@
           <option value="recent">Recent Codes</option>
         </select>
 
-        <button onclick="startScanner()" style="padding:11px 14px; background:black; color:white; border:none; border-radius:8px;">Scan QR</button>
-        <button onclick="manualIssueCode()" style="padding:11px 14px; background:#7c2d12; color:white; border:none; border-radius:8px;">Manual Issue</button>
-        <button onclick="loadCodes()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">Refresh</button>
+        <button onclick="startScanner()" style="padding:11px 14px; background:black; color:white; border:none; border-radius:8px;">
+          Scan QR
+        </button>
 
-        <label style="display:flex; align-items:center; gap:6px; padding:10px 12px; background:white; border:1px solid #bbb; border-radius:8px;">
-          <input type="checkbox" id="compact-toggle" onchange="toggleCompactMode(this.checked)">
-          Compact
-        </label>
+        <button onclick="manualIssueCode()" style="padding:11px 14px; background:#7c2d12; color:white; border:none; border-radius:8px;">
+          Manual Issue
+        </button>
 
-        <button onclick="logoutStaff()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">Logout</button>
+        <button onclick="loadCodes()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">
+          Refresh
+        </button>
+
+        <button onclick="logoutStaff()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">
+          Logout
+        </button>
       </div>
 
       <input
@@ -80,7 +85,10 @@
 
     <div id="scanner" style="display:none; margin:16px 20px;">
       <div id="qr-reader" style="width:100%; max-width:420px;"></div>
-      <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
+
+      <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">
+        Stop Scanner
+      </button>
     </div>
 
     <div style="padding:0 20px 90px;">
@@ -96,8 +104,8 @@
     let allCodes = [];
     let html5QrCode = null;
     let scannerRunning = false;
-    let compactMode = false;
     let recentlyScannedCode = "";
+    let compactMode = true;
 
     function showLoginMessage() {
       const message = sessionStorage.getItem("hfb_login_message");
@@ -187,11 +195,6 @@
       renderCodes();
     }
 
-    function toggleCompactMode(isCompact) {
-      compactMode = isCompact;
-      renderCodes();
-    }
-
     function toggleCodeDetails(id) {
       const selectedDetails = document.getElementById("details-" + id);
       const selectedArrow = document.getElementById("arrow-" + id);
@@ -247,6 +250,7 @@
 
     function updateAnalytics() {
       const analytics = document.getElementById("analytics");
+
       const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
       const redeemedToday = todaysCodes.filter(item => item.redeemed);
       const unredeemedToday = todaysCodes.filter(item => !item.redeemed);
