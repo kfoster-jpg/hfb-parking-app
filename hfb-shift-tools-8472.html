@@ -35,7 +35,7 @@
 
         <div style="display:flex; gap:12px; align-items:center;">
           <button
-            onclick="loadCodes()"
+            onclick="loadCodes(false)"
             style="background:none; border:none; padding:0; font-weight:bold; text-decoration:underline; cursor:pointer;"
           >
             Refresh
@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:0 20px 16px;"></div>
+    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin:0 20px 14px;"></div>
 
     <div
       id="sticky-controls"
@@ -117,6 +117,8 @@
     let scannerRunning = false;
     let recentlyScannedCode = "";
     let compactMode = true;
+    let autoRefreshTimer = null;
+    let openCodeId = null;
 
     function showLoginMessage() {
       const message = sessionStorage.getItem("hfb_login_message");
@@ -177,7 +179,8 @@
       document.getElementById("dashboard-screen").style.display = "block";
       document.getElementById("staff-name-display").innerText = "Logged in as: " + staffName;
 
-      loadCodes();
+      loadCodes(false);
+      startAutoRefresh();
     }
 
     function checkExistingLogin() {
@@ -192,8 +195,24 @@
 
     function logoutStaff() {
       stopScanner();
+      stopAutoRefresh();
       clearStaffSession();
       location.reload();
+    }
+
+    function startAutoRefresh() {
+      stopAutoRefresh();
+
+      autoRefreshTimer = setInterval(function() {
+        loadCodes(true);
+      }, 30000);
+    }
+
+    function stopAutoRefresh() {
+      if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+      }
     }
 
     function setFilter(filter) {
@@ -204,6 +223,10 @@
     function setSearchTerm(value) {
       searchTerm = value.trim().toLowerCase();
       renderCodes();
+    }
+
+    function getCodeId(item) {
+      return item.id || item.code.replace(/[^a-zA-Z0-9]/g, "");
     }
 
     function toggleCodeDetails(id) {
@@ -225,6 +248,9 @@
       if (isOpening) {
         selectedDetails.style.display = "block";
         if (selectedArrow) selectedArrow.innerText = "▲";
+        openCodeId = id;
+      } else {
+        openCodeId = null;
       }
     }
 
@@ -265,33 +291,30 @@
       const todaysCodes = allCodes.filter(item => isToday(item.issued_at));
       const redeemedToday = todaysCodes.filter(item => item.redeemed);
       const unredeemedToday = todaysCodes.filter(item => !item.redeemed);
-      const staleUnredeemedToday = todaysCodes.filter(item =>
-        !item.redeemed && isOlderThanMinutes(item.issued_at, 60)
-      );
 
       const redemptionRate = todaysCodes.length
         ? Math.round((redeemedToday.length / todaysCodes.length) * 100)
         : 0;
 
       analytics.innerHTML = `
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Issued Today</div>
-          <div style="font-size:26px; font-weight:bold;">${todaysCodes.length}</div>
+        <div style="background:white; border:1px solid #e5e5e5; border-radius:10px; padding:10px 12px;">
+          <div style="font-size:12px; color:#666;">Issued Today</div>
+          <div style="font-size:22px; font-weight:bold;">${todaysCodes.length}</div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Redeemed Today</div>
-          <div style="font-size:26px; font-weight:bold;">${redeemedToday.length}</div>
+        <div style="background:white; border:1px solid #e5e5e5; border-radius:10px; padding:10px 12px;">
+          <div style="font-size:12px; color:#666;">Redeemed Today</div>
+          <div style="font-size:22px; font-weight:bold;">${redeemedToday.length}</div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Unredeemed Today</div>
-          <div style="font-size:26px; font-weight:bold;">${unredeemedToday.length}</div>
+        <div style="background:white; border:1px solid #e5e5e5; border-radius:10px; padding:10px 12px;">
+          <div style="font-size:12px; color:#666;">Unredeemed Today</div>
+          <div style="font-size:22px; font-weight:bold;">${unredeemedToday.length}</div>
         </div>
 
-        <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:14px;">
-          <div style="font-size:13px; color:#555;">Redemption Rate</div>
-          <div style="font-size:26px; font-weight:bold;">${redemptionRate}%</div>
+        <div style="background:white; border:1px solid #e5e5e5; border-radius:10px; padding:10px 12px;">
+          <div style="font-size:12px; color:#666;">Redemption Rate</div>
+          <div style="font-size:22px; font-weight:bold;">${redemptionRate}%</div>
         </div>
       `;
     }
@@ -329,6 +352,34 @@
       return filtered;
     }
 
+    function getEmptyStateMessage() {
+      if (searchTerm) {
+        return "No codes match your search.";
+      }
+
+      if (currentFilter === "today-unredeemed") {
+        return "No unredeemed codes found for today.";
+      }
+
+      if (currentFilter === "today-redeemed") {
+        return "No redeemed codes found for today.";
+      }
+
+      if (currentFilter === "30min") {
+        return "No codes issued in the last 30 minutes.";
+      }
+
+      if (currentFilter === "60min") {
+        return "No codes issued in the last 60 minutes.";
+      }
+
+      if (currentFilter === "recent") {
+        return "No recent codes found.";
+      }
+
+      return "No codes found for today.";
+    }
+
     function updateFilterLabel(filteredCodes) {
       const label = document.getElementById("filter-label");
 
@@ -347,11 +398,21 @@
         labels[currentFilter] + searchLabel + " — " + filteredCodes.length + " found";
     }
 
-    async function loadCodes() {
+    function getFreshUnredeemedId(filteredCodes) {
+      const freshCode = filteredCodes.find(item =>
+        !item.redeemed && isWithinMinutes(item.issued_at, 3)
+      );
+
+      return freshCode ? getCodeId(freshCode) : null;
+    }
+
+    async function loadCodes(isQuietRefresh) {
       const container = document.getElementById("codes");
       const token = sessionStorage.getItem("hfb_staff_token");
 
-      container.innerHTML = "Loading codes...";
+      if (!isQuietRefresh) {
+        container.innerHTML = "Loading codes...";
+      }
 
       try {
         const response = await fetch("/api/list-codes", {
@@ -378,7 +439,9 @@
         renderCodes();
 
       } catch (err) {
-        container.innerHTML = "Could not load codes.";
+        if (!isQuietRefresh) {
+          container.innerHTML = "Could not load codes.";
+        }
       }
     }
 
@@ -386,12 +449,16 @@
       const container = document.getElementById("codes");
       const filteredCodes = getFilteredCodes();
 
+      if (!openCodeId) {
+        openCodeId = getFreshUnredeemedId(filteredCodes);
+      }
+
       updateFilterLabel(filteredCodes);
 
       if (!filteredCodes.length) {
         container.innerHTML = `
           <div style="background:white; border:1px solid #ddd; border-radius:12px; padding:18px;">
-            No codes found for this view.
+            ${getEmptyStateMessage()}
           </div>
         `;
         return;
@@ -401,8 +468,9 @@
         const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
         const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
         const isStale = !item.redeemed && isOlderThanMinutes(item.issued_at, 60);
-        const uniqueId = item.id || item.code.replace(/[^a-zA-Z0-9]/g, "");
+        const uniqueId = getCodeId(item);
         const isHighlighted = recentlyScannedCode === item.code;
+        const isOpen = openCodeId === uniqueId;
 
         const leftBorderColor = item.redeemed
           ? "#9ca3af"
@@ -464,7 +532,7 @@
               "
             >
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <span id="arrow-${uniqueId}" style="font-size:16px; font-weight:bold;">▼</span>
+                <span id="arrow-${uniqueId}" style="font-size:16px; font-weight:bold;">${isOpen ? "▲" : "▼"}</span>
 
                 <span style="font-size:${codeFontSize}; font-weight:bold; letter-spacing:1.5px;">
                   ${item.code}
@@ -478,7 +546,7 @@
               </div>
             </div>
 
-            <div id="details-${uniqueId}" style="display:none; padding:${detailsPadding};">
+            <div id="details-${uniqueId}" style="display:${isOpen ? "block" : "none"}; padding:${detailsPadding};">
               <div style="margin-top:4px; line-height:1.6; border-top:1px solid rgba(0,0,0,.12); padding-top:14px;">
                 <strong>Email:</strong> ${item.email || "N/A"}<br>
                 <strong>Issued:</strong> ${issued}<br>
@@ -541,7 +609,7 @@
 
         if (!data.success) {
           alert(data.message || "Could not update code.");
-          loadCodes();
+          loadCodes(false);
           return;
         }
 
@@ -549,7 +617,8 @@
           navigator.vibrate(80);
         }
 
-        loadCodes();
+        openCodeId = null;
+        loadCodes(true);
 
       } catch (err) {
         alert("Could not update code.");
@@ -637,7 +706,8 @@
         }
 
         alert("Manual code issued: " + data.code.code);
-        loadCodes();
+        openCodeId = getCodeId(data.code);
+        loadCodes(false);
 
       } catch (err) {
         alert("Could not manually issue code.");
