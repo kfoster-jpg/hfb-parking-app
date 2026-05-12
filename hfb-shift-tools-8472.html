@@ -6,16 +6,16 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 
-<body style="font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: auto; background:#f6f6f4;">
+<body style="font-family: Arial, sans-serif; padding: 0; max-width: 900px; margin: auto; background:#f6f6f4;">
 
-  <div id="login-screen">
+  <div id="login-screen" style="padding:24px;">
     <h1>Staff Login</h1>
 
     <input
       id="staff-password"
       type="password"
       placeholder="Enter staff password"
-      style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px;"
+      style="width:100%; padding:12px; font-size:16px; margin:8px 0 12px; box-sizing:border-box;"
     />
 
     <button onclick="checkPassword()" style="width:100%; padding:12px; background:black; color:white; border:none;">
@@ -26,42 +26,88 @@
   </div>
 
   <div id="dashboard-screen" style="display:none;">
-    <h1>Parking Codes</h1>
-    <p id="staff-name-display" style="font-weight:bold;"></p>
 
-    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:16px 0;"></div>
-
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;">
-      <select onchange="setFilter(this.value)" style="padding:10px 14px; font-size:16px;">
-        <option value="today-all">Today - All</option>
-        <option value="today-unredeemed">Today - Unredeemed</option>
-        <option value="today-redeemed">Today - Redeemed</option>
-        <option value="30min">Last 30 Min</option>
-        <option value="60min">Last 60 Min</option>
-        <option value="recent">Recent Codes</option>
-      </select>
-
-      <button onclick="startScanner()" style="padding:10px 14px; background:black; color:white; border:none;">Scan QR Code</button>
-      <button onclick="manualIssueCode()" style="padding:10px 14px; background:#7c2d12; color:white; border:none;">Manual Issue Code</button>
-      <button onclick="loadCodes()" style="padding:10px 14px;">Refresh</button>
-      <button onclick="logoutStaff()" style="padding:10px 14px;">Logout</button>
+    <div style="padding:20px 20px 8px;">
+      <h1 style="margin-bottom:4px;">Parking Codes</h1>
+      <p id="staff-name-display" style="font-weight:bold; margin-top:0;"></p>
     </div>
 
-    <input
-      id="search-input"
-      type="text"
-      placeholder="Search by code or email"
-      oninput="setSearchTerm(this.value)"
-      style="width:100%; box-sizing:border-box; padding:12px; font-size:16px; margin:4px 0 16px; border:1px solid #ccc; border-radius:8px;"
-    />
+    <div id="analytics" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin:0 20px 16px;"></div>
 
-    <div id="scanner" style="display:none; margin:16px 0;">
+    <div
+      id="sticky-controls"
+      style="
+        position:sticky;
+        top:0;
+        z-index:50;
+        background:#f6f6f4;
+        padding:12px 20px;
+        border-top:1px solid #e5e5e5;
+        border-bottom:1px solid #ddd;
+        box-shadow:0 2px 8px rgba(0,0,0,.06);
+      "
+    >
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; align-items:center;">
+        <select onchange="setFilter(this.value)" style="padding:11px 14px; font-size:16px; border-radius:8px; border:1px solid #bbb;">
+          <option value="today-all">Today - All</option>
+          <option value="today-unredeemed">Today - Unredeemed</option>
+          <option value="today-redeemed">Today - Redeemed</option>
+          <option value="30min">Last 30 Min</option>
+          <option value="60min">Last 60 Min</option>
+          <option value="recent">Recent Codes</option>
+        </select>
+
+        <button onclick="startScanner()" style="padding:11px 14px; background:black; color:white; border:none; border-radius:8px;">Scan QR</button>
+        <button onclick="manualIssueCode()" style="padding:11px 14px; background:#7c2d12; color:white; border:none; border-radius:8px;">Manual Issue</button>
+        <button onclick="loadCodes()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">Refresh</button>
+
+        <label style="display:flex; align-items:center; gap:6px; padding:10px 12px; background:white; border:1px solid #bbb; border-radius:8px;">
+          <input type="checkbox" id="compact-toggle" onchange="toggleCompactMode(this.checked)">
+          Compact
+        </label>
+
+        <button onclick="logoutStaff()" style="padding:11px 14px; border-radius:8px; border:1px solid #bbb; background:white;">Logout</button>
+      </div>
+
+      <input
+        id="search-input"
+        type="text"
+        placeholder="Search by code or email"
+        oninput="setSearchTerm(this.value)"
+        style="width:100%; box-sizing:border-box; padding:12px; font-size:16px; border:1px solid #ccc; border-radius:8px;"
+      />
+    </div>
+
+    <div id="scanner" style="display:none; margin:16px 20px;">
       <div id="qr-reader" style="width:100%; max-width:420px;"></div>
       <button onclick="stopScanner()" style="margin-top:10px; padding:10px 14px;">Stop Scanner</button>
     </div>
 
-    <p id="filter-label" style="font-weight:bold;"></p>
-    <div id="codes">Loading codes...</div>
+    <div style="padding:0 20px 90px;">
+      <p id="filter-label" style="font-weight:bold;"></p>
+      <div id="codes">Loading codes...</div>
+    </div>
+
+    <button
+      onclick="startScanner()"
+      style="
+        position:fixed;
+        right:18px;
+        bottom:18px;
+        z-index:100;
+        width:72px;
+        height:72px;
+        border-radius:999px;
+        border:none;
+        background:black;
+        color:white;
+        font-weight:bold;
+        box-shadow:0 6px 18px rgba(0,0,0,.28);
+      "
+    >
+      Scan
+    </button>
+
   </div>
 
   <script>
@@ -70,6 +116,8 @@
     let allCodes = [];
     let html5QrCode = null;
     let scannerRunning = false;
+    let compactMode = false;
+    let recentlyScannedCode = "";
 
     function showLoginMessage() {
       const message = sessionStorage.getItem("hfb_login_message");
@@ -159,18 +207,30 @@
       renderCodes();
     }
 
+    function toggleCompactMode(isCompact) {
+      compactMode = isCompact;
+      renderCodes();
+    }
+
     function toggleCodeDetails(id) {
-      const details = document.getElementById("details-" + id);
-      const arrow = document.getElementById("arrow-" + id);
+      const selectedDetails = document.getElementById("details-" + id);
+      const selectedArrow = document.getElementById("arrow-" + id);
 
-      if (!details) return;
+      if (!selectedDetails) return;
 
-      if (details.style.display === "none") {
-        details.style.display = "block";
-        if (arrow) arrow.innerText = "▲";
-      } else {
-        details.style.display = "none";
-        if (arrow) arrow.innerText = "▼";
+      const isOpening = selectedDetails.style.display === "none";
+
+      document.querySelectorAll("[id^='details-']").forEach(detail => {
+        detail.style.display = "none";
+      });
+
+      document.querySelectorAll("[id^='arrow-']").forEach(arrow => {
+        arrow.innerText = "▼";
+      });
+
+      if (isOpening) {
+        selectedDetails.style.display = "block";
+        if (selectedArrow) selectedArrow.innerText = "▲";
       }
     }
 
@@ -352,12 +412,23 @@
         const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
         const isStale = !item.redeemed && isOlderThanMinutes(item.issued_at, 60);
         const uniqueId = item.id || item.code.replace(/[^a-zA-Z0-9]/g, "");
+        const isHighlighted = recentlyScannedCode === item.code;
 
-        const cardStyle = item.redeemed
-          ? "border:1px solid #d1d5db; background:#f3f4f6; opacity:.88;"
+        const leftBorderColor = item.redeemed
+          ? "#9ca3af"
           : isStale
-            ? "border:2px solid #dc2626; background:#fef2f2;"
-            : "border:2px solid #f59e0b; background:#fff7ed;";
+            ? "#dc2626"
+            : "#f59e0b";
+
+        const cardOpacity = item.redeemed ? ".82" : "1";
+
+        const cardPadding = compactMode ? "12px 14px" : "16px 18px";
+        const detailsPadding = compactMode ? "0 14px 14px" : "0 18px 18px";
+        const codeFontSize = compactMode ? "22px" : "26px";
+
+        const highlightStyle = isHighlighted
+          ? "outline:3px solid #16a34a; box-shadow:0 0 0 5px rgba(22,163,74,.16);"
+          : "box-shadow:0 1px 4px rgba(0,0,0,.06);";
 
         const statusBadge = item.redeemed
           ? `<span style="display:inline-block; background:#d1d5db; color:#374151; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">REDEEMED</span>`
@@ -367,18 +438,34 @@
           ? `<span style="display:inline-block; background:#dc2626; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">OLDER THAN 60 MIN</span>`
           : "";
 
+        const scannedBadge = isHighlighted
+          ? `<span style="display:inline-block; background:#16a34a; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">JUST SCANNED</span>`
+          : "";
+
         const manualReason = item.manual_issue_reason
           ? `<br><strong>Manual Issue Reason:</strong> ${item.manual_issue_reason}`
           : "";
 
         return `
-          <div style="${cardStyle} border-radius:14px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden;">
+          <div
+            id="card-${uniqueId}"
+            style="
+              background:white;
+              border:1px solid #e5e7eb;
+              border-left:8px solid ${leftBorderColor};
+              border-radius:14px;
+              margin-bottom:${compactMode ? "8px" : "12px"};
+              overflow:hidden;
+              opacity:${cardOpacity};
+              ${highlightStyle}
+            "
+          >
 
             <div
               onclick="toggleCodeDetails('${uniqueId}')"
               style="
                 cursor:pointer;
-                padding:16px 18px;
+                padding:${cardPadding};
                 display:flex;
                 justify-content:space-between;
                 gap:12px;
@@ -389,18 +476,19 @@
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <span id="arrow-${uniqueId}" style="font-size:16px; font-weight:bold;">▼</span>
 
-                <span style="font-size:26px; font-weight:bold; letter-spacing:1.5px;">
+                <span style="font-size:${codeFontSize}; font-weight:bold; letter-spacing:1.5px;">
                   ${item.code}
                 </span>
               </div>
 
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${scannedBadge}
                 ${statusBadge}
                 ${staleBadge}
               </div>
             </div>
 
-            <div id="details-${uniqueId}" style="display:none; padding:0 18px 18px;">
+            <div id="details-${uniqueId}" style="display:none; padding:${detailsPadding};">
               <div style="margin-top:4px; line-height:1.6; border-top:1px solid rgba(0,0,0,.12); padding-top:14px;">
                 <strong>Email:</strong> ${item.email || "N/A"}<br>
                 <strong>Issued:</strong> ${issued}<br>
@@ -417,10 +505,10 @@
 
               ${
                 item.redeemed
-                  ? `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'unredeem')" style="margin-top:14px; padding:10px 14px; border:1px solid #aaa; background:white; border-radius:6px;">
+                  ? `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'unredeem')" style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; border:1px solid #aaa; background:white; border-radius:8px; font-weight:bold; font-size:16px;">
                       Mark Unredeemed
                     </button>`
-                  : `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'redeem')" style="margin-top:14px; padding:12px 16px; background:black; color:white; border:none; border-radius:6px; font-weight:bold;">
+                  : `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'redeem')" style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; background:black; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;">
                       Mark Redeemed
                     </button>`
               }
@@ -439,10 +527,6 @@
         handleSessionExpired();
         return;
       }
-
-      const label = action === "redeem" ? "redeemed" : "unredeemed";
-
-      if (!confirm("Mark " + code + " as " + label + "?")) return;
 
       try {
         const response = await fetch("/api/redeem-code", {
@@ -465,7 +549,16 @@
           return;
         }
 
-        alert(data.message || "Updated.");
+        if (!data.success) {
+          alert(data.message || "Could not update code.");
+          loadCodes();
+          return;
+        }
+
+        if (navigator.vibrate) {
+          navigator.vibrate(80);
+        }
+
         loadCodes();
 
       } catch (err) {
@@ -616,7 +709,14 @@
       const cleaned = code.replace("HFB-", "").trim().toUpperCase();
       const finalCode = "HFB-" + cleaned;
 
+      recentlyScannedCode = finalCode;
+
       updateCode(finalCode, "redeem");
+
+      setTimeout(function() {
+        recentlyScannedCode = "";
+        renderCodes();
+      }, 6000);
     }
 
     showLoginMessage();
