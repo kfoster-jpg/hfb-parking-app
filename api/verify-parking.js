@@ -44,8 +44,8 @@ export default async function handler(req, res) {
     });
   }
 
-  // 0.2 miles = roughly 322 meters
-  if (distance_meters > 322) {
+  // 0.4 miles = roughly 644 meters
+  if (distance_meters > 644) {
     return res.status(403).json({
       success: false,
       message: 'This page can only be activated from the satellite parking area.'
