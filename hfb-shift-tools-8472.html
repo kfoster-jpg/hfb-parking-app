@@ -34,17 +34,11 @@
         <p id="staff-name-display" style="font-weight:bold; margin:0;"></p>
 
         <div style="display:flex; gap:12px; align-items:center;">
-          <button
-            onclick="loadCodes(false)"
-            style="background:none; border:none; padding:0; font-weight:bold; text-decoration:underline; cursor:pointer;"
-          >
+          <button onclick="loadCodes(false)" style="background:none; border:none; padding:0; font-weight:bold; text-decoration:underline; cursor:pointer;">
             Refresh
           </button>
 
-          <button
-            onclick="logoutStaff()"
-            style="background:none; border:none; padding:0; font-weight:bold; text-decoration:underline; cursor:pointer;"
-          >
+          <button onclick="logoutStaff()" style="background:none; border:none; padding:0; font-weight:bold; text-decoration:underline; cursor:pointer;">
             Logout
           </button>
         </div>
@@ -217,6 +211,7 @@
 
     function setFilter(filter) {
       currentFilter = filter;
+      openCodeId = null;
       renderCodes();
     }
 
@@ -267,6 +262,18 @@
       );
     }
 
+    function isExpired(dateString) {
+      if (!dateString) return false;
+
+      const codeDate = new Date(dateString);
+      const today = new Date();
+
+      codeDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+
+      return codeDate < today;
+    }
+
     function isWithinMinutes(dateString, minutes) {
       if (!dateString) return false;
 
@@ -274,15 +281,6 @@
       const issued = new Date(dateString).getTime();
 
       return now - issued <= minutes * 60 * 1000;
-    }
-
-    function isOlderThanMinutes(dateString, minutes) {
-      if (!dateString) return false;
-
-      const now = Date.now();
-      const issued = new Date(dateString).getTime();
-
-      return now - issued > minutes * 60 * 1000;
     }
 
     function updateAnalytics() {
@@ -400,7 +398,9 @@
 
     function getFreshUnredeemedId(filteredCodes) {
       const freshCode = filteredCodes.find(item =>
-        !item.redeemed && isWithinMinutes(item.issued_at, 3)
+        !item.redeemed &&
+        !isExpired(item.issued_at) &&
+        isWithinMinutes(item.issued_at, 3)
       );
 
       return freshCode ? getCodeId(freshCode) : null;
@@ -467,18 +467,18 @@
       container.innerHTML = filteredCodes.map(item => {
         const issued = item.issued_at ? new Date(item.issued_at).toLocaleString() : "Unknown";
         const redeemedAt = item.redeemed_at ? new Date(item.redeemed_at).toLocaleString() : "";
-        const isStale = !item.redeemed && isOlderThanMinutes(item.issued_at, 60);
+        const expired = isExpired(item.issued_at);
         const uniqueId = getCodeId(item);
         const isHighlighted = recentlyScannedCode === item.code;
         const isOpen = openCodeId === uniqueId;
 
         const leftBorderColor = item.redeemed
           ? "#9ca3af"
-          : isStale
-            ? "#dc2626"
+          : expired
+            ? "#111827"
             : "#f59e0b";
 
-        const cardOpacity = item.redeemed ? ".82" : "1";
+        const cardOpacity = item.redeemed || expired ? ".78" : "1";
 
         const cardPadding = compactMode ? "12px 14px" : "16px 18px";
         const detailsPadding = compactMode ? "0 14px 14px" : "0 18px 18px";
@@ -490,11 +490,9 @@
 
         const statusBadge = item.redeemed
           ? `<span style="display:inline-block; background:#d1d5db; color:#374151; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">REDEEMED</span>`
-          : `<span style="display:inline-block; background:#f59e0b; color:#111827; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">NEEDS REDEMPTION</span>`;
-
-        const staleBadge = isStale
-          ? `<span style="display:inline-block; background:#dc2626; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">OLDER THAN 60 MIN</span>`
-          : "";
+          : expired
+            ? `<span style="display:inline-block; background:#111827; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">EXPIRED</span>`
+            : `<span style="display:inline-block; background:#f59e0b; color:#111827; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">NEEDS REDEMPTION</span>`;
 
         const scannedBadge = isHighlighted
           ? `<span style="display:inline-block; background:#16a34a; color:white; padding:6px 10px; border-radius:999px; font-size:13px; font-weight:bold;">JUST SCANNED</span>`
@@ -542,7 +540,6 @@
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 ${scannedBadge}
                 ${statusBadge}
-                ${staleBadge}
               </div>
             </div>
 
@@ -553,8 +550,8 @@
                 <strong>Status:</strong> ${
                   item.redeemed
                     ? "✅ Redeemed" + (redeemedAt ? " at " + redeemedAt : "")
-                    : isStale
-                      ? "🔴 Not redeemed — older than 60 minutes"
+                    : expired
+                      ? "⚫ Expired — valid date has passed"
                       : "🟡 Not redeemed"
                 }<br>
                 <strong>Redeemed By:</strong> ${item.redeemed_by || "N/A"}
@@ -566,9 +563,13 @@
                   ? `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'unredeem')" style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; border:1px solid #aaa; background:white; border-radius:8px; font-weight:bold; font-size:16px;">
                       Mark Unredeemed
                     </button>`
-                  : `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'redeem')" style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; background:black; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;">
-                      Mark Redeemed
-                    </button>`
+                  : expired
+                    ? `<button disabled style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; border:none; background:#e5e7eb; color:#6b7280; border-radius:8px; font-weight:bold; font-size:16px; cursor:not-allowed;">
+                        Expired
+                      </button>`
+                    : `<button onclick="event.stopPropagation(); updateCode('${item.code}', 'redeem')" style="width:100%; min-height:52px; margin-top:14px; padding:14px 16px; background:black; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;">
+                        Mark Redeemed
+                      </button>`
               }
             </div>
 
