@@ -114,6 +114,8 @@
     let autoRefreshTimer = null;
     let openCodeId = null;
 
+    const staffSessionLength = 16 * 60 * 60 * 1000;
+
     function showLoginMessage() {
       const message = sessionStorage.getItem("hfb_login_message");
 
@@ -124,13 +126,42 @@
     }
 
     function clearStaffSession() {
-      sessionStorage.removeItem("hfb_staff_logged_in");
-      sessionStorage.removeItem("hfb_staff_name");
-      sessionStorage.removeItem("hfb_staff_token");
+      localStorage.removeItem("hfb_staff_logged_in");
+      localStorage.removeItem("hfb_staff_name");
+      localStorage.removeItem("hfb_staff_token");
+      localStorage.removeItem("hfb_staff_expiration");
+    }
+
+    function createStaffSession(staffName, staffToken) {
+      const expiration = Date.now() + staffSessionLength;
+
+      localStorage.setItem("hfb_staff_logged_in", "true");
+      localStorage.setItem("hfb_staff_name", staffName);
+      localStorage.setItem("hfb_staff_token", staffToken);
+      localStorage.setItem("hfb_staff_expiration", expiration.toString());
+    }
+
+    function isStaffSessionValid() {
+      const loggedIn = localStorage.getItem("hfb_staff_logged_in");
+      const staffName = localStorage.getItem("hfb_staff_name");
+      const token = localStorage.getItem("hfb_staff_token");
+      const expiration = localStorage.getItem("hfb_staff_expiration");
+
+      if (!loggedIn || !staffName || !token || !expiration) {
+        return false;
+      }
+
+      if (Date.now() > Number(expiration)) {
+        clearStaffSession();
+        return false;
+      }
+
+      return true;
     }
 
     function handleSessionExpired() {
       stopScanner();
+      stopAutoRefresh();
       clearStaffSession();
       sessionStorage.setItem("hfb_login_message", "Session expired. Please log in again.");
       location.reload();
@@ -152,10 +183,7 @@
         const data = await response.json();
 
         if (data.success) {
-          sessionStorage.setItem("hfb_staff_logged_in", "true");
-          sessionStorage.setItem("hfb_staff_name", data.staff_name);
-          sessionStorage.setItem("hfb_staff_token", data.staff_token);
-
+          createStaffSession(data.staff_name, data.staff_token);
           showDashboard();
         } else {
           error.innerText = data.message || "Incorrect password.";
@@ -167,7 +195,7 @@
     }
 
     function showDashboard() {
-      const staffName = sessionStorage.getItem("hfb_staff_name");
+      const staffName = localStorage.getItem("hfb_staff_name");
 
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("dashboard-screen").style.display = "block";
@@ -178,11 +206,7 @@
     }
 
     function checkExistingLogin() {
-      if (
-        sessionStorage.getItem("hfb_staff_logged_in") === "true" &&
-        sessionStorage.getItem("hfb_staff_name") &&
-        sessionStorage.getItem("hfb_staff_token")
-      ) {
+      if (isStaffSessionValid()) {
         showDashboard();
       }
     }
@@ -351,30 +375,12 @@
     }
 
     function getEmptyStateMessage() {
-      if (searchTerm) {
-        return "No codes match your search.";
-      }
-
-      if (currentFilter === "today-unredeemed") {
-        return "No unredeemed codes found for today.";
-      }
-
-      if (currentFilter === "today-redeemed") {
-        return "No redeemed codes found for today.";
-      }
-
-      if (currentFilter === "30min") {
-        return "No codes issued in the last 30 minutes.";
-      }
-
-      if (currentFilter === "60min") {
-        return "No codes issued in the last 60 minutes.";
-      }
-
-      if (currentFilter === "recent") {
-        return "No recent codes found.";
-      }
-
+      if (searchTerm) return "No codes match your search.";
+      if (currentFilter === "today-unredeemed") return "No unredeemed codes found for today.";
+      if (currentFilter === "today-redeemed") return "No redeemed codes found for today.";
+      if (currentFilter === "30min") return "No codes issued in the last 30 minutes.";
+      if (currentFilter === "60min") return "No codes issued in the last 60 minutes.";
+      if (currentFilter === "recent") return "No recent codes found.";
       return "No codes found for today.";
     }
 
@@ -408,7 +414,12 @@
 
     async function loadCodes(isQuietRefresh) {
       const container = document.getElementById("codes");
-      const token = sessionStorage.getItem("hfb_staff_token");
+      const token = localStorage.getItem("hfb_staff_token");
+
+      if (!isStaffSessionValid()) {
+        handleSessionExpired();
+        return;
+      }
 
       if (!isQuietRefresh) {
         container.innerHTML = "Loading codes...";
@@ -579,10 +590,10 @@
     }
 
     async function updateCode(code, action) {
-      const managerName = sessionStorage.getItem("hfb_staff_name");
-      const token = sessionStorage.getItem("hfb_staff_token");
+      const managerName = localStorage.getItem("hfb_staff_name");
+      const token = localStorage.getItem("hfb_staff_token");
 
-      if (!managerName || !token) {
+      if (!isStaffSessionValid() || !managerName || !token) {
         handleSessionExpired();
         return;
       }
@@ -627,9 +638,9 @@
     }
 
     async function manualIssueCode() {
-      const token = sessionStorage.getItem("hfb_staff_token");
+      const token = localStorage.getItem("hfb_staff_token");
 
-      if (!token) {
+      if (!isStaffSessionValid() || !token) {
         handleSessionExpired();
         return;
       }
@@ -737,9 +748,7 @@
             await stopScanner();
             handleScannedCode(decodedText);
           },
-          function(errorMessage) {
-            // Ignore normal misses
-          }
+          function(errorMessage) {}
         );
 
       } catch (err) {
