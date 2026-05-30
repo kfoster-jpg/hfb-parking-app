@@ -4,7 +4,7 @@ function createStaffToken(staffName) {
   const secret = process.env.STAFF_SESSION_SECRET;
 
   const expiresAt =
-    Date.now() + 12 * 60 * 60 * 1000;
+    Date.now() + 16 * 60 * 60 * 1000;
 
   const payload = JSON.stringify({
     staff_name: staffName,
