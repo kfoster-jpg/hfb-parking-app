@@ -18,7 +18,7 @@ function createStaffToken(staffName) {
     .createHmac('sha256', secret)
     .update(payloadBase64)
     .digest('base64url');
-
+git
   return `${payloadBase64}.${signature}`;
 }
 
