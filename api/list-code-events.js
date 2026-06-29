@@ -8,6 +8,7 @@ function verifyStaffToken(req) {
     return null;
   }
 
+  
   const [payloadBase64, signature] = token.split('.');
   const secret = process.env.STAFF_SESSION_SECRET;
 
