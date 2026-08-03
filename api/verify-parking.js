@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   }
 
   // 0.4 miles = roughly 644 meters
-  if (distance_meters > 644) {
+  if (distance_meters > 600) {
     return res.status(403).json({
       success: false,
       message: 'This page can only be activated from the satellite parking area.'
