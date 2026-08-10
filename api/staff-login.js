@@ -167,6 +167,9 @@ export default async function handler(req, res) {
     [process.env.STAFF_PASSWORD_5]:
     process.env.STAFF_NAME_5,
 
+     [process.env.STAFF_PASSWORD_6]:
+    process.env.STAFF_NAME_6,
+
   };
 
   const staffName =
